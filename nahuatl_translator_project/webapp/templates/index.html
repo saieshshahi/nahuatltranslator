@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>English → Nahuatl Translator</title>
+  <style>
+    :root{--bg:#0b1220;--muted:#8aa0c7;--text:#e8f0ff;--accent:#7aa7ff;--accent2:#5af0c7;--border:rgba(255,255,255,.08);--shadow:0 18px 55px rgba(0,0,0,.45);}*
+    {box-sizing:border-box;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial;}
+    body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:28px;
+      background:radial-gradient(1200px 700px at 15% 10%, rgba(122,167,255,.25), transparent 60%),
+                 radial-gradient(1000px 650px at 85% 15%, rgba(90,240,199,.18), transparent 55%),var(--bg);
+      color:var(--text);}
+    .wrap{max-width:1050px;width:100%;}
+    .header{margin-bottom:16px;}
+    h1{margin:0;font-size:24px;letter-spacing:.2px;}
+    .sub{margin:6px 0 0;color:var(--muted);font-size:13px;max-width:760px;}
+    .card{background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));border:1px solid var(--border);
+      border-radius:18px;box-shadow:var(--shadow);overflow:hidden;}
+    .grid{display:grid;grid-template-columns:1fr 1fr;}
+    .pane{padding:18px;border-right:1px solid var(--border);} .pane:last-child{border-right:none;}
+    label{display:block;color:var(--muted);font-size:12px;margin:0 0 8px;}
+    textarea{width:100%;min-height:240px;resize:vertical;border-radius:14px;border:1px solid var(--border);
+      background:rgba(0,0,0,.18);color:var(--text);padding:14px;outline:none;line-height:1.4;font-size:14px;}
+    .out{border-radius:14px;border:1px solid var(--border);background:rgba(0,0,0,.18);
+      padding:14px;min-height:240px;white-space:pre-wrap;line-height:1.4;font-size:14px;}
+    .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:end;padding:14px 18px;border-top:1px solid var(--border);
+      background:rgba(0,0,0,.12);}
+    select,input{border-radius:12px;border:1px solid var(--border);background:rgba(0,0,0,.18);color:var(--text);
+      padding:10px 12px;outline:none;font-size:13px;min-width:240px;}
+    button{margin-left:auto;border:none;border-radius:12px;padding:10px 14px;color:#071022;font-weight:800;
+      background:linear-gradient(90deg,var(--accent),var(--accent2));cursor:pointer;transition:transform .06s ease;min-width:160px;}
+    button:active{transform:scale(.98);} .status{color:var(--muted);font-size:12px;margin-left:6px;}
+    @media (max-width:920px){.grid{grid-template-columns:1fr;}.pane{border-right:none;border-bottom:1px solid var(--border);} .pane:last-child{border-bottom:none;}
+      button{width:100%;margin-left:0;} select,input{min-width:0;width:100%;}}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="header">
+    <h1>English → Nahuatl Translator</h1>
+    <p class="sub">Translate English to Nahuatl using your fine‑tuned model. Choose a variety label if available.</p>
+  </div>
+
+  <div class="card">
+    <div class="grid">
+      <div class="pane">
+        <label for="src">English</label>
+        <textarea id="src">Good morning. Where is the school?</textarea>
+      </div>
+      <div class="pane">
+        <label>Nahuatl Output</label>
+        <div id="out" class="out"></div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div style="flex:1;">
+        <label style="margin:0 0 6px;">Variety</label>
+        <select id="variety">
+          {% for v in varieties %}
+            <option value="{{v}}">{{v}}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label style="margin:0 0 6px;">Max new tokens</label>
+        <input id="max_new_tokens" type="number" min="16" max="256" value="96"/>
+      </div>
+      <div class="status" id="status"></div>
+      <button id="btn">Translate</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const btn=document.getElementById("btn"),src=document.getElementById("src"),out=document.getElementById("out"),variety=document.getElementById("variety"),statusEl=document.getElementById("status"),maxNewTokens=document.getElementById("max_new_tokens");
+async function translate(){
+  statusEl.textContent="Translating…"; out.textContent=""; btn.disabled=true;
+  try{
+    const res=await fetch("/api/translate",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({text:src.value,variety:variety.value,max_new_tokens:parseInt(maxNewTokens.value||"96",10)})});
+    const data=await res.json();
+    if(!data.ok){statusEl.textContent=data.error||"Error";return;}
+    out.textContent=data.translation;
+    statusEl.textContent="Done ("+data.variety+")";
+  }catch(e){statusEl.textContent="Request failed";}
+  finally{btn.disabled=false;}
+}
+btn.addEventListener("click",translate);
+setTimeout(translate,200);
+</script>
+</body>
+</html>

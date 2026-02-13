@@ -1,0 +1,15 @@
+services:
+  nahuatl:
+    build: .
+    ports:
+      - "7860:7860"
+    volumes:
+      - ./:/app
+    # Optional: put OPENAI_API_KEY (and other OpenAI settings) in a local .env file.
+    # Docker Compose will load it automatically if present.
+    env_file:
+      - .env
+    environment:
+      - PORT=7860
+      # Point to your trained model folder (inside the container)
+      - MODEL_DIR=runs/mt5_small
