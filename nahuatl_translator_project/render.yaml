@@ -2,18 +2,18 @@ services:
   - type: web
     name: nahuatl-backend
     env: docker
-    rootDir: .
-    dockerfilePath: backend/Dockerfile
-    autoDeploy: true
     plan: free
+    autoDeploy: true
+    rootDir: nahuatl_translator_project
+    dockerfilePath: backend/Dockerfile
     envVars:
       - key: OPENAI_API_KEY
         sync: false
-      - key: OPENAI_TRANSLATE_MODEL
-        value: gpt-4o-mini
-      - key: OPENAI_TRANSCRIBE_MODEL
-        value: gpt-4o-mini
-      - key: OPENAI_EXTRACT_MODEL
-        value: gpt-4o-mini
       - key: CORS_ORIGINS
-        value: "*"
+        value: "https://saieshshahi.github.io,http://localhost:5173"
+      - key: OPENAI_TRANSLATE_MODEL
+        value: "gpt-4o-mini"
+      - key: OPENAI_TRANSCRIBE_MODEL
+        value: "gpt-4o-mini"
+      - key: OPENAI_EXTRACT_MODEL
+        value: "gpt-4o-mini"
