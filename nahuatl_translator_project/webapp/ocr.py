@@ -82,3 +82,63 @@ def _ocr_image(path: str, lang_hint: str) -> OCRResult:
     langs = _tesseract_langs(lang_hint)
     text = pytesseract.image_to_string(img, lang=langs)
     return OCRResult(text=(text or "").strip(), pages=1, used_ocr=True)
+
+
+# ---------------------------------------------------------------------------
+# Image tiling for large manuscript pages (Phase 3)
+# ---------------------------------------------------------------------------
+
+def tile_image(
+    image_path: str,
+    tile_height: int = 800,
+    overlap: int = 100,
+) -> List[str]:
+    """Split a tall image into overlapping horizontal strips (tiles).
+
+    For images shorter than tile_height, returns a single-element list
+    with the original path (no splitting needed).
+
+    Each tile overlaps with the next by `overlap` pixels to ensure no
+    text is lost at boundaries.
+
+    Returns a list of temporary file paths for the tile images.
+    The caller is responsible for cleaning up these files.
+    """
+    import tempfile
+
+    img = Image.open(image_path)
+    width, height = img.size
+
+    # No tiling needed for small images
+    if height <= tile_height:
+        return [image_path]
+
+    tiles: List[str] = []
+    y = 0
+    while y < height:
+        bottom = min(y + tile_height, height)
+        tile = img.crop((0, y, width, bottom))
+
+        fd, tile_path = tempfile.mkstemp(prefix=f"tile_{len(tiles)}_", suffix=".png")
+        os.close(fd)
+        tile.save(tile_path)
+        tiles.append(tile_path)
+
+        # Advance by (tile_height - overlap) so tiles overlap
+        y += tile_height - overlap
+
+        # If the remaining strip would be very small, just stop
+        if height - y < overlap and y < height:
+            break
+
+    return tiles
+
+
+def cleanup_tiles(tile_paths: List[str], original_path: str) -> None:
+    """Remove temporary tile files (but not the original image)."""
+    for p in tile_paths:
+        if p != original_path and os.path.exists(p):
+            try:
+                os.unlink(p)
+            except Exception:
+                pass

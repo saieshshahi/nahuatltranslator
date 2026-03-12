@@ -268,6 +268,46 @@ def openai_translate_variants(
     return outs if outs else [""]
 
 
+def _image_to_data_url(image_path: str) -> str:
+    """Convert an image file to a base64 data URL for the OpenAI API."""
+    import base64
+    from io import BytesIO
+    from PIL import Image
+
+    img = Image.open(image_path)
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+    return f"data:image/png;base64,{b64}"
+
+
+def _transcribe_single_image(
+    client: Any,
+    model: str,
+    image_path: str,
+    system_prompt: str,
+    user_prompt: str,
+    temperature: float = 0.0,
+) -> str:
+    """Send a single image to OpenAI vision and get transcription text back."""
+    data_url = _image_to_data_url(image_path)
+    resp = client.responses.create(
+        model=model,
+        temperature=float(temperature),
+        input=[
+            {"role": "system", "content": system_prompt},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "input_text", "text": user_prompt},
+                    {"type": "input_image", "image_url": data_url},
+                ],
+            },
+        ],
+    )
+    return (resp.output_text or "").strip()
+
+
 def openai_transcribe_image(
     image_path: str,
     language_hint: str = "es",
@@ -275,53 +315,106 @@ def openai_transcribe_image(
     model: Optional[str] = None,
     temperature: float = 0.0,
 ) -> str:
-    """Transcribe a manuscript page image using an OpenAI vision-capable model."""
-    import base64
-    from io import BytesIO
+    """Transcribe a manuscript page image using an OpenAI vision-capable model.
+
+    Uses a two-pass strategy for large images:
+      Pass 1 (Overview): full image at reduced resolution → structural layout.
+      Pass 2 (Detail): tile the image into overlapping strips, transcribe each,
+                        then stitch results together.
+
+    For small images (< 1500px height), does a single direct transcription.
+    """
     from PIL import Image
     from openai import OpenAI
+    from webapp.ocr import tile_image, cleanup_tiles
+    from webapp.prompts import (
+        transcription_system_prompt,
+        transcription_tile_prompt,
+        transcription_stitch_prompt,
+    )
 
     if not openai_available():
         raise RuntimeError("OPENAI_API_KEY is not set")
 
-    model = model or os.getenv("OPENAI_TRANSCRIBE_MODEL", "gpt-4o-mini")
+    model = model or os.getenv("OPENAI_TRANSCRIBE_MODEL", "gpt-4o")
     client = OpenAI()
 
-    # Normalize to PNG for consistent mime + smaller surprises.
+    system = transcription_system_prompt(language_hint, alphabet_hint)
+
+    # Check image dimensions to decide strategy
     img = Image.open(image_path)
-    buf = BytesIO()
-    img.save(buf, format="PNG")
-    b64 = base64.b64encode(buf.getvalue()).decode("ascii")
-    data_url = f"data:image/png;base64,{b64}"
+    _, height = img.size
+    img.close()
 
-    system = (
-        "You are a paleography-focused transcription assistant. "
-        "Transcribe EXACTLY what you see into plain text. "
-        "Preserve line breaks and punctuation. Do not translate. "
-        "If a character/word is unclear, mark it with [?]. "
-        "Do not add commentary."
-    )
-    user = (
-        f"Language hint: {language_hint}. "
-        f"Alphabet/orthography hint: {alphabet_hint or '(none)'}\n\n"
-        "Task: produce a faithful transcription." 
-    )
+    # --- Small image: single-pass transcription ---
+    if height <= 1500:
+        user = (
+            f"Language hint: {language_hint}. "
+            f"Alphabet/orthography hint: {alphabet_hint or '(none)'}\n\n"
+            "Transcribe ALL text visible on this page. Work from top to bottom."
+        )
+        return _transcribe_single_image(
+            client, model, image_path, system, user, temperature,
+        )
 
-    resp = client.responses.create(
-        model=model,
-        temperature=float(temperature),
-        input=[
-            {"role": "system", "content": system},
-            {
-                "role": "user",
-                "content": [
-                    {"type": "input_text", "text": user},
-                    {"type": "input_image", "image_url": data_url},
-                ],
-            },
-        ],
-    )
-    return (resp.output_text or "").strip()
+    # --- Large image: two-pass with tiling ---
+
+    # Pass 1: Overview scan (optional, helps with ordering)
+    # We skip this for speed and go straight to tiled detail transcription.
+
+    # Pass 2: Tile and transcribe each strip
+    tile_paths = tile_image(image_path, tile_height=800, overlap=100)
+
+    try:
+        if len(tile_paths) == 1:
+            # Tiling returned the original (wasn't tall enough after all)
+            user = (
+                f"Language hint: {language_hint}. "
+                f"Alphabet/orthography hint: {alphabet_hint or '(none)'}\n\n"
+                "Transcribe ALL text visible on this page. Work from top to bottom."
+            )
+            return _transcribe_single_image(
+                client, model, image_path, system, user, temperature,
+            )
+
+        # Transcribe each tile
+        tile_texts: List[str] = []
+        for i, tile_path in enumerate(tile_paths):
+            user = transcription_tile_prompt(
+                tile_index=i,
+                total_tiles=len(tile_paths),
+                language_hint=language_hint,
+                alphabet_hint=alphabet_hint,
+            )
+            text = _transcribe_single_image(
+                client, model, tile_path, system, user, temperature,
+            )
+            tile_texts.append(text)
+
+        # Stitch tile transcriptions together
+        if len(tile_texts) == 1:
+            return tile_texts[0]
+
+        # Use OpenAI to intelligently merge overlapping transcriptions
+        stitch_system = transcription_stitch_prompt(len(tile_texts))
+        segments = "\n\n".join(
+            f"--- SEGMENT {i+1} of {len(tile_texts)} ---\n{t}"
+            for i, t in enumerate(tile_texts)
+        )
+        stitch_user = f"Merge these transcription segments:\n\n{segments}"
+
+        resp = client.responses.create(
+            model=model,
+            temperature=0.0,
+            input=[
+                {"role": "system", "content": stitch_system},
+                {"role": "user", "content": stitch_user},
+            ],
+        )
+        return (resp.output_text or "").strip()
+
+    finally:
+        cleanup_tiles(tile_paths, image_path)
 
 
 def openai_handwriting_profile(
@@ -347,7 +440,7 @@ def openai_handwriting_profile(
     b64 = base64.b64encode(buf.getvalue()).decode("ascii")
     data_url = f"data:image/png;base64,{b64}"
 
-    model = model or os.getenv("OPENAI_TRANSCRIBE_MODEL", "gpt-4o-mini")
+    model = model or os.getenv("OPENAI_TRANSCRIBE_MODEL", "gpt-4o")
     client = OpenAI()
 
     system = (

@@ -190,3 +190,127 @@ def translation_variants_system_prompt(src: str, tgt: str, variety: str) -> str:
         "faithful translation; your phrasing may vary but must remain accurate. "
         "Prefer natural, idiomatic expression over literal word-for-word rendering."
     )
+
+
+# ---------------------------------------------------------------------------
+# Transcription prompts (Phase 3)
+# ---------------------------------------------------------------------------
+
+COLONIAL_NAHUATL_TRANSCRIPTION_CONTEXT = """\
+COLONIAL-ERA NAHUATL MANUSCRIPT CONVENTIONS:
+- Long-s (ſ): commonly used for 's' in colonial texts. Transcribe as regular 's'.
+- Abbreviations with tildes: ñ above a letter often marks a missing 'n' or 'm'
+  (e.g., "cõ" = "con", "q̃" = "que"). Expand abbreviations when clearly identifiable.
+- Ligatures: 'ct', 'st', 'ff' may appear as connected letterforms.
+- Nahuatl words use Spanish colonial orthography:
+  * "hu" for /w/ (modern: "w")
+  * "qu" before e/i for /k/ (modern: "k")
+  * "cu" for /kʷ/
+  * "tz" for /ts/
+  * "x" for /ʃ/ (like Spanish "x" in "México")
+  * "tl" for the lateral affricate /tɬ/
+- Common colonial abbreviations: "xpo" = "Cristo", "dios" = "Dios",
+  "nro" = "nuestro", "sr" = "señor".
+- Line continuation: a word split across lines may be marked with a hyphen
+  or simply broken. Rejoin split words when the break is obvious.
+- Marginal notes and interlinear glosses may appear; transcribe them separately
+  if visible, marked with [margin:] or [gloss:].
+- Numbers may appear as Roman numerals or Arabic numerals.
+- Folio markers (e.g., "fol. 3r", "fol. 3v") indicate recto/verso pages.\
+"""
+
+
+def transcription_system_prompt(language_hint: str = "es", alphabet_hint: str = "") -> str:
+    """Build a domain-aware system prompt for manuscript transcription."""
+    lang_note = ""
+    if language_hint == "nah":
+        lang_note = (
+            "The primary language is Nahuatl (Aztec). "
+            "Expect agglutinative words with prefixes and suffixes. "
+            "Common Nahuatl words include: in, ihuan, ica, ipan, niman, "
+            "quimati, tlatoani, altepetl, calli, tlalli, atl."
+        )
+    elif language_hint == "es":
+        lang_note = (
+            "The primary language is Spanish, possibly mixed with Nahuatl. "
+            "Colonial-era Spanish uses archaic spellings and abbreviations."
+        )
+
+    alphabet_note = ""
+    if alphabet_hint:
+        alphabet_note = f"\nAdditional orthography hint from user: {alphabet_hint}"
+
+    return f"""\
+You are an expert paleographer specializing in colonial-era Mesoamerican manuscripts.
+You have deep expertise in reading 16th-18th century handwritten documents in
+Spanish, Nahuatl, and mixed-language colonial texts.
+
+{COLONIAL_NAHUATL_TRANSCRIPTION_CONTEXT}
+
+{lang_note}{alphabet_note}
+
+TRANSCRIPTION RULES:
+- Transcribe EXACTLY what you see. Do NOT translate or paraphrase.
+- Preserve original line breaks as they appear on the page.
+- Preserve original punctuation, capitalization, and spacing.
+- If a character or word is unclear, mark it with [?] or [illegible].
+- If you can partially read a word, write what you can and mark unclear
+  parts: e.g., "tlaca[?]li" for a partially legible word.
+- Expand obvious abbreviations but mark them: e.g., "que" [expanded from q̃].
+- If marginal notes exist, transcribe them as [margin: text here].
+- Do NOT add commentary, analysis, or translation. Only transcribe.
+- Transcribe ALL text visible on the page, not just the first few lines.
+- Work systematically from top to bottom, left to right.\
+"""
+
+
+def transcription_overview_prompt(language_hint: str = "es") -> str:
+    """Prompt for the overview pass — get structural layout info."""
+    return (
+        "Analyze the overall structure of this manuscript page. Report:\n"
+        "1. Approximate number of text lines visible\n"
+        "2. Number of text columns (1 or 2)\n"
+        "3. Whether there are marginal notes\n"
+        "4. Whether there are headers, titles, or section divisions\n"
+        "5. General legibility (good / fair / poor)\n"
+        "6. Primary script type (print / handwritten / mixed)\n\n"
+        f"Language hint: {language_hint}.\n"
+        "Be brief — this is a structural overview only. Do NOT transcribe the text."
+    )
+
+
+def transcription_tile_prompt(
+    tile_index: int,
+    total_tiles: int,
+    language_hint: str = "es",
+    alphabet_hint: str = "",
+) -> str:
+    """User prompt for transcribing a single tile of a larger page."""
+    position = "top" if tile_index == 0 else ("bottom" if tile_index == total_tiles - 1 else "middle")
+    return (
+        f"This is section {tile_index + 1} of {total_tiles} ({position} portion) "
+        f"of a manuscript page.\n"
+        f"Language hint: {language_hint}. "
+        f"Alphabet/orthography hint: {alphabet_hint or '(none)'}\n\n"
+        "Transcribe ALL text visible in this section. "
+        "If text is cut off at the top or bottom edge, transcribe what is visible "
+        "and mark cut-off words with [...]. "
+        "Produce ONLY the transcription, no commentary."
+    )
+
+
+def transcription_stitch_prompt(tile_count: int) -> str:
+    """System prompt for stitching tile transcriptions together."""
+    return (
+        f"You are combining {tile_count} overlapping transcription segments from "
+        "a single manuscript page. The segments overlap slightly, so some text "
+        "appears in consecutive segments.\n\n"
+        "RULES:\n"
+        "- Merge the segments into one continuous transcription.\n"
+        "- Remove duplicate lines that appear in the overlap zones.\n"
+        "- Preserve the original line breaks and formatting.\n"
+        "- Do NOT add, remove, or modify any text beyond de-duplicating overlaps.\n"
+        "- If a word was cut off [...] in one segment but complete in the overlap "
+        "of the next, use the complete version.\n"
+        "- Output ONLY the merged transcription. No commentary."
+    )
