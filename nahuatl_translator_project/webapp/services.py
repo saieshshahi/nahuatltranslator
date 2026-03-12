@@ -136,6 +136,23 @@ def openai_available() -> bool:
     return bool(os.getenv("OPENAI_API_KEY"))
 
 
+def _get_corpus_context(text: str, src: str) -> Tuple[str, str]:
+    """Look up relevant parallel sentences from the corpus for prompt injection.
+
+    Returns (reference_sentences, reference_vocab) strings ready for injection.
+    """
+    from webapp.corpus import get_corpus
+
+    corpus = get_corpus()
+    if not corpus.loaded:
+        return "", ""
+
+    # Search in the source language side of the corpus
+    matches = corpus.search(query=text, src_lang=src, max_results=5)
+    ref_sentences = corpus.format_as_reference(matches, src_lang=src)
+    return ref_sentences, ""
+
+
 def openai_translate(
     text: str,
     src: str,
@@ -143,24 +160,30 @@ def openai_translate(
     variety: str,
     model: Optional[str] = None,
 ) -> str:
-    """Optional translation fallback using the OpenAI Responses API.
+    """Primary translation using the OpenAI Responses API with
+    linguistically-informed Nahuatl prompts and corpus context injection.
 
     Requires OPENAI_API_KEY in the environment.
     """
     from openai import OpenAI
+    from webapp.prompts import translation_system_prompt, translation_user_prompt
 
     model = model or os.getenv("OPENAI_TRANSLATE_MODEL", "gpt-4o-mini")
     client = OpenAI()
-    system = (
-        "You are a careful professional translator. "
-        "Preserve meaning, names, and numbers. "
-        "Keep the output only in the target language."
+
+    system = translation_system_prompt(src, tgt, variety)
+
+    # Inject relevant parallel corpus context
+    ref_sentences, ref_vocab = _get_corpus_context(text, src)
+    user = translation_user_prompt(
+        text=text,
+        src=src,
+        tgt=tgt,
+        variety=variety,
+        reference_vocab=ref_vocab,
+        reference_sentences=ref_sentences,
     )
-    user = (
-        f"Translate from {_label(src)} to {_label(tgt)}. "
-        f"Variety/dialect hint (if applicable): {variety}.\n\n"
-        f"TEXT:\n{text.strip()}"
-    )
+
     try:
         resp = client.responses.create(
             model=model,
@@ -185,12 +208,14 @@ def openai_translate_variants(
     temperature: float = 0.6,
     model: Optional[str] = None,
 ) -> List[str]:
-    """Generate k translation variants with OpenAI.
+    """Generate k translation variants with OpenAI using linguistically-informed
+    Nahuatl prompts and corpus context injection.
 
     The Responses API is optimized for a single output; for variant lists we issue
     multiple calls with a moderate temperature and de-duplicate results.
     """
     from openai import OpenAI
+    from webapp.prompts import translation_variants_system_prompt, translation_user_prompt
 
     if not openai_available():
         raise RuntimeError("OPENAI_API_KEY is not set")
@@ -200,16 +225,17 @@ def openai_translate_variants(
     k = max(1, int(k))
     temperature = float(temperature)
 
-    system = (
-        "You are a careful professional translator. "
-        "Preserve meaning, names, and numbers. "
-        "Keep the output only in the target language. "
-        "Return a faithful translation; phrasings may vary but must remain accurate."
-    )
-    user = (
-        f"Translate from {_label(src)} to {_label(tgt)}. "
-        f"Variety/dialect hint (if applicable): {variety}.\n\n"
-        f"TEXT:\n{text.strip()}"
+    system = translation_variants_system_prompt(src, tgt, variety)
+
+    # Inject relevant parallel corpus context
+    ref_sentences, ref_vocab = _get_corpus_context(text, src)
+    user = translation_user_prompt(
+        text=text,
+        src=src,
+        tgt=tgt,
+        variety=variety,
+        reference_vocab=ref_vocab,
+        reference_sentences=ref_sentences,
     )
 
     outs: List[str] = []

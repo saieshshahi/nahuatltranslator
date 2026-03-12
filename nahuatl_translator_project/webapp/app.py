@@ -251,12 +251,13 @@ def extract_ui(text: str, instruction: str, schema_hint: str, engine: str):
 
 
 with gr.Blocks(title="Nahuatl Translator + Document OCR") as demo:
-    key_status = "✅ OpenAI fallback enabled" if openai_available() else "⚪ OpenAI fallback disabled (set OPENAI_API_KEY)"
+    key_status = "✅ OpenAI enabled (primary engine)" if openai_available() else "⚠️ OpenAI not configured — set OPENAI_API_KEY for best results"
     gr.Markdown(
         "# Nahuatl Translator + Document OCR\n"
         "Translate text (English↔Nahuatl, Spanish↔Nahuatl) and extract text from uploaded documents.\n\n"
         f"**OpenAI status:** {key_status}\n\n"
-        "**Tips:** If your local model outputs repetitive text (e.g., `niman niman niman ...`), try increasing beams or enable OpenAI fallback."
+        "**Tips:** OpenAI with expert Nahuatl prompts is the recommended engine. "
+        "Local model is available as a fallback option."
     )
 
     with gr.Tabs():
@@ -278,8 +279,8 @@ with gr.Blocks(title="Nahuatl Translator + Document OCR") as demo:
                 variety = gr.Dropdown(label="Variety", choices=VARIETIES, value=VARIETIES[0])
                 engine = gr.Dropdown(
                     label="Engine",
-                    choices=["Auto (local → OpenAI if needed)", "Local only", "OpenAI only"],
-                    value="Auto (local → OpenAI if needed)",
+                    choices=["OpenAI only", "Auto (local → OpenAI if needed)", "Local only"],
+                    value="OpenAI only",
                 )
 
             with gr.Row():
@@ -341,8 +342,8 @@ with gr.Blocks(title="Nahuatl Translator + Document OCR") as demo:
                 variety2 = gr.Dropdown(label="Variety", choices=VARIETIES, value=VARIETIES[0])
                 engine2 = gr.Dropdown(
                     label="Engine",
-                    choices=["Auto (local → OpenAI if needed)", "Local only", "OpenAI only"],
-                    value="Auto (local → OpenAI if needed)",
+                    choices=["OpenAI only", "Auto (local → OpenAI if needed)", "Local only"],
+                    value="OpenAI only",
                 )
             translate_doc_btn = gr.Button("Translate extracted text")
             translated_doc = gr.Textbox(label="Translation", lines=12)
