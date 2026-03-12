@@ -137,20 +137,30 @@ def openai_available() -> bool:
 
 
 def _get_corpus_context(text: str, src: str) -> Tuple[str, str]:
-    """Look up relevant parallel sentences from the corpus for prompt injection.
+    """Look up relevant parallel sentences and vocabulary from the corpus.
 
     Returns (reference_sentences, reference_vocab) strings ready for injection.
     """
     from webapp.corpus import get_corpus
+    from webapp.dictionary import get_dictionary
 
+    ref_sentences = ""
+    ref_vocab = ""
+
+    # Sentence-level context from parallel corpus
     corpus = get_corpus()
-    if not corpus.loaded:
-        return "", ""
+    if corpus.loaded:
+        matches = corpus.search(query=text, src_lang=src, max_results=5)
+        ref_sentences = corpus.format_as_reference(matches, src_lang=src)
 
-    # Search in the source language side of the corpus
-    matches = corpus.search(query=text, src_lang=src, max_results=5)
-    ref_sentences = corpus.format_as_reference(matches, src_lang=src)
-    return ref_sentences, ""
+    # Word-level vocabulary from dictionary index
+    dictionary = get_dictionary()
+    if dictionary.loaded:
+        ref_vocab = dictionary.format_vocab_block(
+            query=text, src_lang=src, max_entries=8,
+        )
+
+    return ref_sentences, ref_vocab
 
 
 def openai_translate(
