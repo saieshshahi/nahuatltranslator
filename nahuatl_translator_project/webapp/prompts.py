@@ -314,3 +314,54 @@ def transcription_stitch_prompt(tile_count: int) -> str:
         "of the next, use the complete version.\n"
         "- Output ONLY the merged transcription. No commentary."
     )
+
+
+# ---------------------------------------------------------------------------
+# Extraction prompts (Phase 4)
+# ---------------------------------------------------------------------------
+
+def extraction_system_prompt(entity_reference: str = "", disambiguation_rules: str = "") -> str:
+    """Build a domain-aware system prompt for structured extraction from
+    Nahuatl / colonial Mesoamerican texts."""
+
+    entity_block = ""
+    if entity_reference:
+        entity_block = f"\n\n{entity_reference}"
+
+    rules_block = ""
+    if disambiguation_rules:
+        rules_block = f"\n\n{disambiguation_rules}"
+
+    return f"""\
+You extract structured data from text, with specialization in colonial-era \
+Mesoamerican and Nahuatl documents.
+
+You have expert knowledge of Aztec/Nahua history, culture, and naming conventions. \
+You understand the difference between ethnic groups, places, deities, titles, and \
+individuals in Mesoamerican contexts.
+{entity_block}{rules_block}
+
+OUTPUT RULES:
+- Return ONLY valid JSON. No markdown code fences, no commentary.
+- Classify each entity with the correct type based on context and the reference above.
+- When in doubt between two classifications, prefer the one supported by the \
+disambiguation rules.
+- If the text contains no extractable entities for a category, use an empty list [].
+- Preserve original spelling of names from the source text.\
+"""
+
+
+def extraction_user_prompt(
+    text: str,
+    instruction: str,
+    schema_hint: str = "",
+) -> str:
+    """Build the user prompt for an extraction call."""
+    parts = [f"INSTRUCTION:\n{instruction.strip()}"]
+
+    if schema_hint:
+        parts.append(f"SCHEMA HINT (structure your output like this):\n{schema_hint.strip()}")
+
+    parts.append(f"TEXT:\n{text.strip()}")
+
+    return "\n\n".join(parts)

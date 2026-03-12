@@ -473,20 +473,30 @@ def openai_extract(
     schema_hint: str = "",
     model: Optional[str] = None,
 ) -> str:
-    """Optional extraction using OpenAI. Returns a JSON string when possible."""
+    """Structured extraction using OpenAI with Mesoamerican domain knowledge.
+
+    Injects entity taxonomy and disambiguation rules so the model can
+    correctly classify entities like Mexica (people) vs Mexico (place).
+    Returns a JSON string.
+    """
     from openai import OpenAI
+    from webapp.entities import format_entity_reference, DISAMBIGUATION_RULES
+    from webapp.prompts import extraction_system_prompt, extraction_user_prompt
 
     model = model or os.getenv("OPENAI_EXTRACT_MODEL", "gpt-4o-mini")
     client = OpenAI()
-    system = (
-        "You extract structured data from text. "
-        "Return ONLY valid JSON. No markdown, no commentary."
+
+    entity_ref = format_entity_reference(max_per_type=8)
+    system = extraction_system_prompt(
+        entity_reference=entity_ref,
+        disambiguation_rules=DISAMBIGUATION_RULES,
     )
-    user = (
-        f"INSTRUCTION:\n{instruction.strip()}\n\n"
-        f"SCHEMA_HINT (optional):\n{schema_hint.strip()}\n\n"
-        f"TEXT:\n{text.strip()}\n"
+    user = extraction_user_prompt(
+        text=text,
+        instruction=instruction,
+        schema_hint=schema_hint,
     )
+
     try:
         resp = client.responses.create(
             model=model,

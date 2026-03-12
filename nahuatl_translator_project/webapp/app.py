@@ -399,15 +399,15 @@ with gr.Blocks(title="Nahuatl Translator + Document OCR") as demo:
             text_in = gr.Textbox(label="Text", lines=12)
             instruction = gr.Textbox(
                 label="Instruction",
-                value="Extract names, dates, organizations, and any monetary amounts.",
+                value="Extract people, places, dates, deities, titles/roles, and key events. Distinguish ethnic groups (e.g. Mexica) from places (e.g. Mexico).",
                 lines=3,
             )
             schema_hint = gr.Textbox(
                 label="Schema hint (optional)",
-                value='{"names":[],"dates":[],"organizations":[],"amounts":[],"notes":""}',
+                value='{"people":[{"name":"","type":"individual|ethnic_group"}],"places":[{"name":"","type":"city|region"}],"deities":[{"name":"","domain":""}],"dates":[{"text":"","calendar":"gregorian|aztec"}],"events":[{"description":"","participants":[]}],"titles_roles":[{"title":"","holder":""}]}',
                 lines=3,
             )
-            engine3 = gr.Dropdown(label="Engine", choices=["Offline", "OpenAI"], value="Offline")
+            engine3 = gr.Dropdown(label="Engine", choices=["OpenAI", "Offline"], value="OpenAI")
             extract_btn = gr.Button("Extract")
             extracted_json = gr.Textbox(label="Output", lines=12)
             extract_btn.click(fn=extract_ui, inputs=[text_in, instruction, schema_hint, engine3], outputs=[extracted_json])

@@ -264,8 +264,8 @@ function TranscribeTab() {
 
 function ExtractTab() {
   const [text, setText] = useState("");
-  const [instruction, setInstruction] = useState("Extract people, places, dates, and key events.");
-  const [schema, setSchema] = useState("");
+  const [instruction, setInstruction] = useState("Extract people, places, dates, deities, titles/roles, and key events. Distinguish ethnic groups (e.g. Mexica) from places (e.g. Mexico).");
+  const [schema, setSchema] = useState('{"people":[{"name":"","type":"individual|ethnic_group"}],"places":[{"name":"","type":"city|region"}],"deities":[{"name":"","domain":""}],"dates":[{"text":"","calendar":"gregorian|aztec"}],"events":[{"description":"","participants":[]}],"titles_roles":[{"title":"","holder":""}]}');
   const [loading, setLoading] = useState(false);
   const [out, setOut] = useState(null);
   const [err, setErr] = useState("");
