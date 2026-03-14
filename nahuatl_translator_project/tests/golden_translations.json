@@ -1,0 +1,477 @@
+{
+  "_description": "Golden translation pairs for accuracy testing. Sourced from the parallel corpus (biblical), standard Nahuatl greetings, and common phrases. Each entry has: src, tgt, src_lang, tgt_lang, category, and notes.",
+  "pairs": [
+    {
+      "src": "Cualli tonalli",
+      "tgt": "Good day",
+      "src_lang": "nah",
+      "tgt_lang": "en",
+      "category": "greeting",
+      "notes": "Standard Nahuatl greeting"
+    },
+    {
+      "src": "Good morning",
+      "tgt": "Cualli tlaneci",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "greeting",
+      "notes": "Morning greeting"
+    },
+    {
+      "src": "Good night",
+      "tgt": "Cualli yohualli",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "greeting",
+      "notes": "Evening farewell"
+    },
+    {
+      "src": "Thank you",
+      "tgt": "Tlazohcamati",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "greeting",
+      "notes": "Common courtesy expression"
+    },
+    {
+      "src": "How are you?",
+      "tgt": "¿Quen tica?",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "greeting",
+      "notes": "Informal how are you"
+    },
+    {
+      "src": "water",
+      "tgt": "atl",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "vocabulary",
+      "notes": "Basic noun with absolutive -tl"
+    },
+    {
+      "src": "house",
+      "tgt": "calli",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "vocabulary",
+      "notes": "Basic noun with absolutive -li"
+    },
+    {
+      "src": "sun",
+      "tgt": "tonatiuh",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "vocabulary",
+      "notes": "Also used as deity name"
+    },
+    {
+      "src": "earth",
+      "tgt": "tlalli",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "vocabulary",
+      "notes": "Basic noun"
+    },
+    {
+      "src": "fire",
+      "tgt": "tletl",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "vocabulary",
+      "notes": "Basic noun with absolutive -tl"
+    },
+    {
+      "src": "flower",
+      "tgt": "xochitl",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "vocabulary",
+      "notes": "Common word in Nahuatl poetry"
+    },
+    {
+      "src": "song",
+      "tgt": "cuicatl",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "vocabulary",
+      "notes": "Central to Nahuatl literary tradition"
+    },
+    {
+      "src": "chocolate",
+      "tgt": "chocolatl",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "vocabulary",
+      "notes": "English borrowed from Nahuatl"
+    },
+    {
+      "src": "tomato",
+      "tgt": "tomatl",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "vocabulary",
+      "notes": "English borrowed from Nahuatl"
+    },
+    {
+      "src": "avocado",
+      "tgt": "ahuacatl",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "vocabulary",
+      "notes": "English borrowed from Nahuatl"
+    },
+    {
+      "src": "coyote",
+      "tgt": "coyotl",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "vocabulary",
+      "notes": "English borrowed from Nahuatl"
+    },
+    {
+      "src": "my house",
+      "tgt": "nocal",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "morphology",
+      "notes": "Possessive prefix no- + cal (absolutive -li drops)"
+    },
+    {
+      "src": "your house",
+      "tgt": "mocal",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "morphology",
+      "notes": "Possessive prefix mo-"
+    },
+    {
+      "src": "his house",
+      "tgt": "ical",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "morphology",
+      "notes": "Possessive prefix i-"
+    },
+    {
+      "src": "I make it",
+      "tgt": "nikchihua",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "morphology",
+      "notes": "ni- (I) + k- (it) + chihua (make). Also written: nicchihua"
+    },
+    {
+      "src": "I eat",
+      "tgt": "nitlacua",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "morphology",
+      "notes": "ni- (I) + tla- (something) + cua (eat)"
+    },
+    {
+      "src": "I want to eat tortillas",
+      "tgt": "Nicnequi nitlaxcalcuas",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "phrase",
+      "notes": "Noun incorporation: tlaxcal- incorporated into verb"
+    },
+    {
+      "src": "The water is very cold",
+      "tgt": "Atl huel itztic",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "phrase",
+      "notes": "huel = very/truly, no articles in Nahuatl"
+    },
+    {
+      "src": "What is your name?",
+      "tgt": "¿Tlein motoca?",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "phrase",
+      "notes": "tlein = what, mo- = your, toca = name"
+    },
+    {
+      "src": "I speak Nahuatl",
+      "tgt": "Ninahuatlahtohua",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "phrase",
+      "notes": "ni- + nahuatl + ahtohua (speak). Also: ninawatlahto"
+    },
+    {
+      "src": "God",
+      "tgt": "Dios",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "religious",
+      "notes": "Spanish loanword commonly used in modern Nahuatl"
+    },
+    {
+      "src": "In the beginning God created the heaven and the earth",
+      "tgt": "Ipan tlahtocapehualiztli in Dios oquiyocox in ilhuicatl ihuan in tlalticpactli",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "biblical",
+      "notes": "Genesis 1:1 - standard biblical test pair"
+    },
+    {
+      "src": "And God said, Let there be light: and there was light",
+      "tgt": "Ihuan in Dios oquihtoh, Ma tlanextli: ihuan tlanextli omochiuh",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "biblical",
+      "notes": "Genesis 1:3"
+    },
+    {
+      "src": "The Lord is my shepherd",
+      "tgt": "In Totecuiyo nopixcauh",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "biblical",
+      "notes": "Psalm 23:1"
+    },
+    {
+      "src": "love",
+      "tgt": "tlazohtlaliztli",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "vocabulary",
+      "notes": "Abstract noun with -liztli nominalizer"
+    },
+    {
+      "src": "death",
+      "tgt": "miquiztli",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "vocabulary",
+      "notes": "From miqui (to die) + -liztli"
+    },
+    {
+      "src": "life",
+      "tgt": "yoliliztli",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "vocabulary",
+      "notes": "From yoli (to live) + -liztli"
+    },
+    {
+      "src": "war",
+      "tgt": "yaoyotl",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "vocabulary",
+      "notes": "yao- (enemy/war) + -yotl (abstract)"
+    },
+    {
+      "src": "book",
+      "tgt": "amoxtli",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "vocabulary",
+      "notes": "Also refers to codices/manuscripts"
+    },
+    {
+      "src": "dog",
+      "tgt": "chichi",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "vocabulary",
+      "notes": "Common animal term. Also itzcuintli."
+    },
+    {
+      "src": "snake",
+      "tgt": "coatl",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "vocabulary",
+      "notes": "As in Quetzalcoatl (feathered serpent)"
+    },
+    {
+      "src": "feathered serpent",
+      "tgt": "quetzalcoatl",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "vocabulary",
+      "notes": "quetzal (precious feather) + coatl (serpent)"
+    },
+    {
+      "src": "mountain",
+      "tgt": "tepetl",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "vocabulary",
+      "notes": "As in Chapultepec (grasshopper hill)"
+    },
+    {
+      "src": "rain",
+      "tgt": "quiahuitl",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "vocabulary",
+      "notes": "Related to Tlaloc (rain god)"
+    },
+    {
+      "src": "wind",
+      "tgt": "ehecatl",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "vocabulary",
+      "notes": "Also name of wind deity"
+    },
+    {
+      "src": "star",
+      "tgt": "citlalli",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "vocabulary",
+      "notes": "Alternate: citlalin"
+    },
+    {
+      "src": "moon",
+      "tgt": "metztli",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "vocabulary",
+      "notes": "As in Mexico (place of the moon's navel)"
+    },
+    {
+      "src": "heart",
+      "tgt": "yollotl",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "vocabulary",
+      "notes": "Central concept in Aztec philosophy"
+    },
+    {
+      "src": "blood",
+      "tgt": "eztli",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "vocabulary",
+      "notes": "Important in religious/sacrificial context"
+    },
+    {
+      "src": "maize",
+      "tgt": "centli",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "vocabulary",
+      "notes": "Corn/maize, sacred crop. Related to deity Centeotl"
+    },
+    {
+      "src": "child",
+      "tgt": "conetl",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "vocabulary",
+      "notes": "Also: piltzintli (noble child/dear child)"
+    },
+    {
+      "src": "woman",
+      "tgt": "cihuatl",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "vocabulary",
+      "notes": "As in cihuacoatl (woman-serpent title)"
+    },
+    {
+      "src": "man",
+      "tgt": "tlacatl",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "vocabulary",
+      "notes": "General word for person/man"
+    },
+    {
+      "src": "ruler",
+      "tgt": "tlatoani",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "vocabulary",
+      "notes": "Literally 'speaker', the Aztec king title"
+    },
+    {
+      "src": "priest",
+      "tgt": "tlamacazqui",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "vocabulary",
+      "notes": "Literally 'one who offers/gives things'"
+    },
+    {
+      "src": "warrior",
+      "tgt": "yaoquizqui",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "vocabulary",
+      "notes": "From yaotl (war) + quizqui (one who goes out)"
+    },
+    {
+      "src": "Buenos días",
+      "tgt": "Cualli tonalli",
+      "src_lang": "es",
+      "tgt_lang": "nah",
+      "category": "greeting_es",
+      "notes": "Spanish to Nahuatl greeting"
+    },
+    {
+      "src": "Gracias",
+      "tgt": "Tlazohcamati",
+      "src_lang": "es",
+      "tgt_lang": "nah",
+      "category": "greeting_es",
+      "notes": "Spanish to Nahuatl thank you"
+    },
+    {
+      "src": "¿Cómo te llamas?",
+      "tgt": "¿Tlein motoca?",
+      "src_lang": "es",
+      "tgt_lang": "nah",
+      "category": "phrase_es",
+      "notes": "Spanish to Nahuatl what is your name"
+    },
+    {
+      "src": "Nejhua niPablo, nimechtlajtlanilia.",
+      "tgt": "I, Paul, ask you all.",
+      "src_lang": "nah",
+      "tgt_lang": "en",
+      "category": "biblical",
+      "notes": "Nahuatl to English, biblical text (Philemon)"
+    },
+    {
+      "src": "In tlacatl ihuan in cihuatl",
+      "tgt": "The man and the woman",
+      "src_lang": "nah",
+      "tgt_lang": "en",
+      "category": "phrase",
+      "notes": "in = the (article marker in Nahuatl), ihuan = and"
+    },
+    {
+      "src": "Nicnequi atl",
+      "tgt": "I want water",
+      "src_lang": "nah",
+      "tgt_lang": "en",
+      "category": "phrase",
+      "notes": "ni- (I) + c- (it) + nequi (want) + atl (water)"
+    },
+    {
+      "src": "Nican tlacah",
+      "tgt": "Here are the people",
+      "src_lang": "nah",
+      "tgt_lang": "en",
+      "category": "phrase",
+      "notes": "nican = here, tlacah = people (plural of tlacatl)"
+    },
+    {
+      "src": "Amo niccahua",
+      "tgt": "I do not leave it",
+      "src_lang": "nah",
+      "tgt_lang": "en",
+      "category": "morphology",
+      "notes": "amo = not, ni- = I, c- = it, cahua = to leave"
+    }
+  ]
+}
