@@ -1,6 +1,7 @@
-"""Edge case tests for the Nahuatl Translator.
+"""Edge case tests for the Nahuatl Translator (AI-first architecture).
 
 Tests unusual inputs, boundary conditions, and error handling across all modules.
+Ensures the system degrades gracefully when supplementary resources fail.
 """
 
 import os
@@ -11,49 +12,40 @@ import pytest
 
 
 # ===================================================================
-# Corpus edge cases
+# Corpus edge cases (supplementary resource)
 # ===================================================================
 
 class TestCorpusEdgeCases:
     def test_search_very_long_query(self, mini_corpus_entries):
-        """A very long query should not crash."""
         long_query = "word " * 1000
         results = mini_corpus_entries.search(long_query, src_lang="en", max_results=5)
         assert isinstance(results, list)
 
     def test_search_special_characters(self, mini_corpus_entries):
-        """Query with special characters should not crash."""
         results = mini_corpus_entries.search("hello!!! @#$% ^&*()", src_lang="en")
         assert isinstance(results, list)
 
     def test_search_unicode_characters(self, mini_corpus_entries):
-        """Query with unicode characters should work."""
         results = mini_corpus_entries.search("café résumé naïve", src_lang="en")
         assert isinstance(results, list)
 
     def test_search_nahuatl_accented(self, mini_corpus_entries):
-        """Nahuatl text with accented characters should be handled."""
         results = mini_corpus_entries.search("oquiyocox", src_lang="nah")
         assert isinstance(results, list)
 
     def test_search_numbers_in_query(self, mini_corpus_entries):
-        """Numbers in query should be handled gracefully."""
         results = mini_corpus_entries.search("123 456 789", src_lang="en")
         assert isinstance(results, list)
 
     def test_search_max_results_zero(self, mini_corpus_entries):
-        """max_results=0 should return empty list."""
         results = mini_corpus_entries.search("God", src_lang="en", max_results=0)
         assert results == []
 
     def test_search_max_results_negative(self, mini_corpus_entries):
-        """Negative max_results should return empty or very short list."""
         results = mini_corpus_entries.search("God", src_lang="en", max_results=-1)
-        # The slice [:max_results] with negative max_results excludes last items
         assert isinstance(results, list)
 
     def test_format_reference_single_entry(self, mini_corpus_entries):
-        """Formatting a single entry should work."""
         from webapp.corpus import ParallelEntry
         entries = [ParallelEntry(english="hello", nahuatl="niltze")]
         result = mini_corpus_entries.format_as_reference(entries, src_lang="en")
@@ -62,7 +54,7 @@ class TestCorpusEdgeCases:
 
 
 # ===================================================================
-# Dictionary edge cases
+# Dictionary edge cases (supplementary resource)
 # ===================================================================
 
 class TestDictionaryEdgeCases:
@@ -83,7 +75,6 @@ class TestDictionaryEdgeCases:
 
     def test_lookup_with_punctuation(self, mini_dictionary):
         results = mini_dictionary.lookup("water!", src_lang="en")
-        # Should still find "water" despite punctuation
         assert isinstance(results, list)
 
     def test_lookup_max_per_term_one(self, mini_dictionary):
@@ -111,7 +102,7 @@ class TestPromptEdgeCases:
     def test_empty_text_translation(self):
         from webapp.prompts import translation_user_prompt
         prompt = translation_user_prompt("", "en", "nah", "")
-        assert "TEXT TO TRANSLATE" in prompt
+        assert "TRANSLATE THIS" in prompt
 
     def test_very_long_text_translation(self):
         from webapp.prompts import translation_user_prompt
@@ -127,12 +118,10 @@ class TestPromptEdgeCases:
     def test_empty_variety(self):
         from webapp.prompts import translation_system_prompt
         prompt = translation_system_prompt("en", "nah", "")
-        # Should not contain variety-specific text
-        assert "specified the variety" not in prompt
+        assert "specified the dialect" not in prompt
 
     def test_tile_prompt_edge_single_tile(self):
         from webapp.prompts import transcription_tile_prompt
-        # Single tile should still work
         prompt = transcription_tile_prompt(0, 1, "nah")
         assert "section 1 of 1" in prompt
 
@@ -155,7 +144,6 @@ class TestEntityEdgeCases:
     def test_format_entity_reference_max_zero(self):
         from webapp.entities import format_entity_reference
         ref = format_entity_reference(max_per_type=0)
-        # Should still have headers but no entries
         assert "KNOWN MESOAMERICAN ENTITIES" in ref
 
     def test_format_entity_reference_max_large(self):
@@ -166,7 +154,7 @@ class TestEntityEdgeCases:
     def test_entity_notes_not_empty(self):
         from webapp.entities import KNOWN_ENTITIES
         for entity in KNOWN_ENTITIES:
-            assert len(entity["note"]) > 5, f"Entity '{entity['name']}' has too short a note"
+            assert len(entity["note"]) > 5
 
 
 # ===================================================================
@@ -182,7 +170,6 @@ class TestOCREdgeCases:
             pytest.skip(f"OCR dependency missing: {e}")
 
     def test_tile_very_small_image(self):
-        """Image smaller than tile_height should return original."""
         self._skip_if_no_deps()
         from PIL import Image
         from webapp.ocr import tile_image
@@ -200,7 +187,6 @@ class TestOCREdgeCases:
             os.unlink(path)
 
     def test_tile_1px_tall_image(self):
-        """1px tall image should not crash."""
         self._skip_if_no_deps()
         from PIL import Image
         from webapp.ocr import tile_image
@@ -217,7 +203,6 @@ class TestOCREdgeCases:
             os.unlink(path)
 
     def test_tile_wide_short_image(self):
-        """Very wide but short image should return original."""
         self._skip_if_no_deps()
         from PIL import Image
         from webapp.ocr import tile_image
@@ -235,12 +220,11 @@ class TestOCREdgeCases:
 
 
 # ===================================================================
-# Services edge cases
+# Services edge cases (AI-first — graceful degradation)
 # ===================================================================
 
 class TestServicesEdgeCases:
     def test_translate_empty_text(self):
-        """Translating empty text should not crash."""
         mock_resp = MagicMock()
         mock_resp.output_text = ""
 
@@ -254,7 +238,6 @@ class TestServicesEdgeCases:
             assert isinstance(result, str)
 
     def test_translate_very_long_text(self):
-        """Translating very long text should not crash."""
         mock_resp = MagicMock()
         mock_resp.output_text = "translated"
 
@@ -268,7 +251,6 @@ class TestServicesEdgeCases:
             assert isinstance(result, str)
 
     def test_translate_with_newlines(self):
-        """Text with newlines should be handled."""
         mock_resp = MagicMock()
         mock_resp.output_text = "translated"
 
@@ -282,7 +264,6 @@ class TestServicesEdgeCases:
             assert isinstance(result, str)
 
     def test_translate_null_output(self):
-        """API returning None should be handled."""
         mock_resp = MagicMock()
         mock_resp.output_text = None
 
@@ -296,7 +277,6 @@ class TestServicesEdgeCases:
             assert result == ""
 
     def test_extract_empty_text(self):
-        """Extracting from empty text should not crash."""
         mock_resp = MagicMock()
         mock_resp.output_text = "{}"
 
@@ -310,7 +290,6 @@ class TestServicesEdgeCases:
             assert result == "{}"
 
     def test_extract_api_failure(self):
-        """API failure in extraction should raise RuntimeError."""
         mock_client = MagicMock()
         mock_client.responses.create.side_effect = Exception("Connection timeout")
 
@@ -321,11 +300,8 @@ class TestServicesEdgeCases:
                 openai_extract("Test text", "Extract entities.")
 
     def test_repetition_detector_borderline(self):
-        """Test repetition detection at the threshold."""
         from webapp.services import guess_repetition
-
-        # Exactly at threshold (45% repetition)
-        tokens = ["word"] * 9 + ["other"] * 11  # 9/20 = 45%
+        tokens = ["word"] * 9 + ["other"] * 11
         text = " ".join(tokens)
         result = guess_repetition(text)
         assert isinstance(result, bool)
@@ -381,34 +357,41 @@ class TestServicesEdgeCases:
 
 
 # ===================================================================
-# Cross-module edge cases
+# Cross-module edge cases (AI-first architecture)
 # ===================================================================
 
 class TestCrossModuleEdgeCases:
     def test_corpus_and_dictionary_agree_on_water(self, mini_corpus_entries, mini_dictionary):
-        """Both corpus and dictionary should find 'water' related content."""
+        """Both supplementary resources should find 'water' content."""
         corpus_results = mini_corpus_entries.search("water", src_lang="en")
         dict_results = mini_dictionary.lookup("water", src_lang="en")
 
-        # Both should have results
         assert len(corpus_results) > 0
         assert len(dict_results) > 0
 
     def test_entity_taxonomy_covers_corpus_entities(self):
-        """Entities mentioned in disambiguation rules should exist in taxonomy."""
         from webapp.entities import KNOWN_ENTITIES, DISAMBIGUATION_RULES
 
         entity_names = {e["name"].lower() for e in KNOWN_ENTITIES}
-        # Key entities mentioned in rules should be in taxonomy
         key_entities = ["mexica", "mexico", "tlatoani"]
         for name in key_entities:
-            assert name in entity_names, f"'{name}' in rules but not in taxonomy"
+            assert name in entity_names
 
-    def test_prompts_reference_linguistic_features(self):
-        """Translation prompts should reference key linguistic features."""
+    def test_prompts_position_ai_as_expert(self):
+        """Translation prompts should position AI as the expert."""
         from webapp.prompts import translation_system_prompt
 
         prompt = translation_system_prompt("en", "nah", "")
-        key_features = ["agglutinative", "polysynthetic", "VSO", "articles"]
-        for feature in key_features:
-            assert feature in prompt, f"Missing linguistic feature: {feature}"
+        assert "expert" in prompt.lower()
+        assert "own knowledge" in prompt.lower() or "your own" in prompt.lower()
+
+    def test_supplementary_context_labeled_correctly(self):
+        """User prompt should label corpus context as supplementary."""
+        from webapp.prompts import translation_user_prompt
+
+        prompt = translation_user_prompt(
+            "Hello", "en", "nah", "",
+            reference_vocab='- "hello" → "Pialli"',
+            reference_sentences="- English: Hello\n  Nahuatl: Pialli",
+        )
+        assert "SUPPLEMENTARY" in prompt

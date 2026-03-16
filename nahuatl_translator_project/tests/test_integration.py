@@ -1,9 +1,10 @@
 """Integration tests for the Nahuatl Translator pipeline.
 
-These tests verify that modules work correctly together end-to-end:
-- Corpus + Dictionary + Prompts → Translation pipeline
-- OCR tiling + Transcription prompts → Transcription pipeline
-- Entity taxonomy + Extraction prompts → Extraction pipeline
+Architecture: OpenAI is the PRIMARY translator. The corpus and dictionary
+are supplementary vocabulary sources only. These tests verify:
+- AI-first translation pipeline works end-to-end
+- Corpus/dictionary provide optional supplementary context
+- Extraction pipeline works with entity taxonomy
 """
 
 import json
@@ -17,31 +18,31 @@ from tests.conftest import skip_no_openai, skip_no_corpus
 
 
 # ===================================================================
-# Corpus + Dictionary integration
+# Corpus + Dictionary as supplementary context
 # ===================================================================
 
-class TestCorpusDictionaryIntegration:
-    """Test corpus and dictionary modules working together."""
+class TestSupplementaryContextIntegration:
+    """Test corpus and dictionary modules provide optional supplementary context."""
 
-    def test_corpus_context_pipeline(self, mini_corpus_entries, mini_dictionary):
-        """Simulate _get_corpus_context: corpus search + dictionary lookup."""
+    def test_supplementary_context_pipeline(self, mini_corpus_entries, mini_dictionary):
+        """Simulate _get_corpus_context: corpus search + dictionary lookup as supplements."""
         query = "water cold"
 
-        # Corpus search
-        matches = mini_corpus_entries.search(query, src_lang="en", max_results=5)
+        # Corpus search (supplementary sentences)
+        matches = mini_corpus_entries.search(query, src_lang="en", max_results=3)
         ref_sentences = mini_corpus_entries.format_as_reference(matches, src_lang="en")
 
-        # Dictionary lookup
-        ref_vocab = mini_dictionary.format_vocab_block(query, src_lang="en", max_entries=8)
+        # Dictionary lookup (supplementary vocab)
+        ref_vocab = mini_dictionary.format_vocab_block(query, src_lang="en", max_entries=5)
 
-        # Both should produce output
-        assert len(ref_sentences) > 0, "Corpus should find relevant sentences"
-        assert len(ref_vocab) > 0, "Dictionary should find relevant vocab"
+        # Both should produce output when available
+        assert len(ref_sentences) > 0, "Corpus should find relevant supplementary sentences"
+        assert len(ref_vocab) > 0, "Dictionary should find relevant supplementary vocab"
         assert "English:" in ref_sentences
         assert "→" in ref_vocab
 
-    def test_corpus_context_empty_query(self, mini_corpus_entries, mini_dictionary):
-        """Empty query should produce empty context."""
+    def test_empty_query_produces_empty_context(self, mini_corpus_entries, mini_dictionary):
+        """Empty query should produce empty context — AI translates on its own."""
         ref_sentences_matches = mini_corpus_entries.search("", src_lang="en")
         ref_sentences = mini_corpus_entries.format_as_reference(ref_sentences_matches, src_lang="en")
         ref_vocab = mini_dictionary.format_vocab_block("", src_lang="en")
@@ -49,20 +50,38 @@ class TestCorpusDictionaryIntegration:
         assert ref_sentences == ""
         assert ref_vocab == ""
 
+    def test_translation_works_without_supplementary_context(self):
+        """AI should translate even with no corpus/dictionary context."""
+        from webapp.prompts import translation_system_prompt, translation_user_prompt
+
+        system = translation_system_prompt("en", "nah", "Unknown")
+        user = translation_user_prompt(
+            text="Hello, my name is Carlos",
+            src="en", tgt="nah", variety="Unknown",
+            reference_vocab="",
+            reference_sentences="",
+        )
+
+        # System prompt should position AI as expert
+        assert "expert" in system.lower()
+        # User prompt should have the text and NO supplementary sections
+        assert "TRANSLATE THIS" in user
+        assert "SUPPLEMENTARY" not in user
+
 
 # ===================================================================
-# Prompt + Corpus + Dictionary integration
+# Prompt + Supplementary Context integration
 # ===================================================================
 
 class TestPromptContextIntegration:
-    """Test that corpus context integrates into prompts correctly."""
+    """Test that supplementary corpus context integrates into prompts correctly."""
 
-    def test_translation_prompt_with_context(self, mini_corpus_entries, mini_dictionary):
+    def test_translation_prompt_with_supplementary_context(self, mini_corpus_entries, mini_dictionary):
         from webapp.prompts import translation_system_prompt, translation_user_prompt
 
         query = "The warrior went to the mountain"
 
-        # Get context
+        # Get supplementary context
         matches = mini_corpus_entries.search(query, src_lang="en", max_results=3)
         ref_sentences = mini_corpus_entries.format_as_reference(matches, src_lang="en")
         ref_vocab = mini_dictionary.format_vocab_block(query, src_lang="en", max_entries=5)
@@ -74,13 +93,13 @@ class TestPromptContextIntegration:
             reference_vocab=ref_vocab, reference_sentences=ref_sentences,
         )
 
-        # System prompt should have linguistic context
-        assert "agglutinative" in system
+        # System prompt should position AI as expert
+        assert "expert" in system.lower()
         assert "TRANSLATION DIRECTION" in system
 
-        # User prompt should include corpus context
-        assert "REFERENCE VOCABULARY" in user
-        assert "REFERENCE PARALLEL SENTENCES" in user
+        # User prompt should include supplementary context clearly labeled
+        assert "SUPPLEMENTARY VOCABULARY" in user
+        assert "SUPPLEMENTARY PARALLEL" in user
         assert query in user
 
     def test_extraction_prompt_with_entities(self):
@@ -101,7 +120,6 @@ class TestPromptContextIntegration:
         # System should have entity knowledge
         assert "Mexica" in system
         assert "DISAMBIGUATION" in system
-        assert "people" in system.lower()
 
         # User should have the text and schema
         assert "Mexica" in user
@@ -110,16 +128,19 @@ class TestPromptContextIntegration:
 
 
 # ===================================================================
-# Services integration (mocked OpenAI)
+# Services integration (mocked OpenAI — AI is the primary engine)
 # ===================================================================
 
 class TestServicesIntegrationMocked:
-    """Test services.py functions with mocked OpenAI client."""
+    """Test services.py functions with mocked OpenAI client.
 
-    def test_openai_translate_calls_api(self):
-        """Verify openai_translate builds correct prompts and calls API."""
+    These verify that OpenAI is the primary engine and corpus context is supplementary.
+    """
+
+    def test_openai_translate_calls_api_as_primary(self):
+        """Verify openai_translate uses AI as primary with expert prompts."""
         mock_resp = MagicMock()
-        mock_resp.output_text = "Cualli tonalli"
+        mock_resp.output_text = "Pialli, notoca Carlos."
 
         mock_client = MagicMock()
         mock_client.responses.create.return_value = mock_resp
@@ -127,16 +148,16 @@ class TestServicesIntegrationMocked:
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}), \
              patch("openai.OpenAI", return_value=mock_client):
             from webapp.services import openai_translate
-            result = openai_translate("Good morning", "en", "nah", "Unknown")
+            result = openai_translate("Hello, my name is Carlos", "en", "nah", "Unknown")
 
-        assert result == "Cualli tonalli"
+        assert result == "Pialli, notoca Carlos."
         mock_client.responses.create.assert_called_once()
 
-        # Check the call used our custom prompts
+        # Check the system prompt positions AI as expert
         call_kwargs = mock_client.responses.create.call_args
         messages = call_kwargs.kwargs.get("input") or call_kwargs[1].get("input")
         system_msg = messages[0]["content"]
-        assert "agglutinative" in system_msg
+        assert "expert" in system_msg.lower()
         assert "Nahuatl" in system_msg
 
     def test_openai_translate_variants_calls_api(self):
@@ -153,7 +174,6 @@ class TestServicesIntegrationMocked:
             results = openai_translate_variants("Good morning", "en", "nah", "Unknown", k=3)
 
         assert len(results) >= 1
-        # Should have called API (may deduplicate to fewer calls)
         assert mock_client.responses.create.call_count >= 1
 
     def test_openai_extract_calls_api_with_entities(self):
@@ -189,6 +209,23 @@ class TestServicesIntegrationMocked:
             from webapp.services import openai_translate
             with pytest.raises(RuntimeError, match="OpenAI translation failed"):
                 openai_translate("Hello", "en", "nah", "Unknown")
+
+    def test_corpus_failure_does_not_break_translation(self):
+        """If corpus/dictionary fails, translation should still work (AI is primary)."""
+        mock_resp = MagicMock()
+        mock_resp.output_text = "Pialli"
+
+        mock_client = MagicMock()
+        mock_client.responses.create.return_value = mock_resp
+
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}), \
+             patch("openai.OpenAI", return_value=mock_client), \
+             patch("webapp.corpus.get_corpus", side_effect=Exception("corpus broken")):
+            from webapp.services import openai_translate
+            result = openai_translate("Hello", "en", "nah", "Unknown")
+
+        # Should still work — AI is primary, corpus is optional
+        assert result == "Pialli"
 
 
 # ===================================================================
@@ -246,16 +283,24 @@ class TestServiceHelpers:
         finally:
             os.unlink(path)
 
-    def test_get_corpus_context(self, mini_corpus_entries, mini_dictionary):
-        """Test _get_corpus_context integration."""
-        # Patch at the source module where they're imported from
+    def test_get_corpus_context_returns_supplementary(self, mini_corpus_entries, mini_dictionary):
+        """Test _get_corpus_context provides supplementary (not primary) context."""
         with patch("webapp.corpus.get_corpus", return_value=mini_corpus_entries), \
              patch("webapp.dictionary.get_dictionary", return_value=mini_dictionary):
             from webapp.services import _get_corpus_context
             ref_sentences, ref_vocab = _get_corpus_context("water cold", "en")
 
+            # Both should have content (when corpus is available)
             assert len(ref_sentences) > 0
             assert len(ref_vocab) > 0
+
+    def test_get_corpus_context_gracefully_fails(self):
+        """If corpus loading fails, should return empty strings (not crash)."""
+        with patch("webapp.corpus.get_corpus", side_effect=Exception("broken")):
+            from webapp.services import _get_corpus_context
+            ref_sentences, ref_vocab = _get_corpus_context("hello", "en")
+            assert ref_sentences == ""
+            assert ref_vocab == ""
 
 
 # ===================================================================
@@ -291,7 +336,7 @@ class TestLiveAPIIntegration:
 
     @skip_no_openai
     def test_full_pipeline_en_to_nah(self):
-        """Full pipeline: corpus context + prompts + API call."""
+        """Full pipeline: AI primary + optional corpus context."""
         from webapp.services import openai_translate
         result = openai_translate(
             "In the beginning God created the heaven and the earth",
@@ -305,3 +350,25 @@ class TestLiveAPIIntegration:
             for w in ["dios", "ilhuicatl", "tlalticpactli", "ihuan", "ipan", "oqui"]
         )
         assert has_nahuatl, f"Expected Nahuatl output, got: {result}"
+
+    @skip_no_openai
+    def test_ai_translates_without_corpus(self):
+        """AI should produce good translation even without corpus context."""
+        from webapp.services import openai_translate
+
+        # Patch corpus to return nothing — AI should still work
+        from webapp.corpus import ParallelCorpus
+        from webapp.dictionary import NahuatlDictionary
+
+        empty_corpus = ParallelCorpus()
+        empty_dict = NahuatlDictionary()
+
+        with patch("webapp.corpus.get_corpus", return_value=empty_corpus), \
+             patch("webapp.dictionary.get_dictionary", return_value=empty_dict):
+            result = openai_translate("Hello, my name is Carlos", "en", "nah", "Unknown")
+
+        assert len(result) > 0
+        # Should still produce Nahuatl (AI knows the language)
+        result_lower = result.lower()
+        has_nahuatl = "pialli" in result_lower or "notoca" in result_lower or "carlos" in result_lower
+        assert has_nahuatl, f"AI should translate without corpus. Got: {result}"

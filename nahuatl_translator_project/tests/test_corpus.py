@@ -1,4 +1,8 @@
-"""Unit tests for webapp/corpus.py — parallel corpus loader and keyword search."""
+"""Unit tests for webapp/corpus.py — supplementary parallel corpus.
+
+The corpus provides SUPPLEMENTARY sentence-level reference for the AI translator.
+These tests verify the corpus loads, searches, and formats correctly.
+"""
 
 import pytest
 from webapp.corpus import ParallelCorpus, ParallelEntry, _tokenize
@@ -9,8 +13,6 @@ from webapp.corpus import ParallelCorpus, ParallelEntry, _tokenize
 # ===================================================================
 
 class TestTokenize:
-    """Tests for the _tokenize() helper."""
-
     def test_basic_tokenization(self):
         tokens = _tokenize("The cat sat on the mat")
         assert "cat" in tokens
@@ -24,9 +26,7 @@ class TestTokenize:
         assert "on" not in tokens
 
     def test_short_words_removed(self):
-        """Words with 2 or fewer characters should be filtered out."""
         tokens = _tokenize("I am a go to do it")
-        # All are stop words or too short
         assert len(tokens) == 0
 
     def test_lowercase_normalization(self):
@@ -61,11 +61,11 @@ class TestTokenize:
 
 
 # ===================================================================
-# ParallelCorpus tests
+# ParallelCorpus tests (supplementary resource)
 # ===================================================================
 
 class TestParallelCorpus:
-    """Tests for the ParallelCorpus class using the mini_corpus_entries fixture."""
+    """Tests for the ParallelCorpus as supplementary context source."""
 
     def test_corpus_loaded(self, mini_corpus_entries):
         assert mini_corpus_entries.loaded is True
@@ -74,15 +74,14 @@ class TestParallelCorpus:
     def test_search_english_query(self, mini_corpus_entries):
         results = mini_corpus_entries.search("water cold", src_lang="en", max_results=3)
         assert len(results) > 0
-        # Should find the "water is very cold" entry
         found_water = any("water" in r.english.lower() for r in results)
-        assert found_water, "Expected to find an entry about water"
+        assert found_water
 
     def test_search_nahuatl_query(self, mini_corpus_entries):
         results = mini_corpus_entries.search("xochitl cuicatl", src_lang="nah", max_results=3)
         assert len(results) > 0
         found = any("xochitl" in r.nahuatl.lower() for r in results)
-        assert found, "Expected to find entry containing xochitl"
+        assert found
 
     def test_search_returns_max_results(self, mini_corpus_entries):
         results = mini_corpus_entries.search("God light earth", src_lang="en", max_results=2)
@@ -101,12 +100,10 @@ class TestParallelCorpus:
         assert len(results) == 0
 
     def test_search_prefers_shorter_entries(self, mini_corpus_entries):
-        """Shorter entries should be ranked higher due to length normalization."""
         results = mini_corpus_entries.search("water", src_lang="en", max_results=5)
         if len(results) >= 2:
-            # The short entry "The water is very cold" should score well
             first_len = len(results[0].english.split())
-            assert first_len < 20, "Expected shorter entries first"
+            assert first_len < 20
 
     def test_format_as_reference_english(self, mini_corpus_entries):
         entries = mini_corpus_entries.entries[:2]
@@ -114,14 +111,13 @@ class TestParallelCorpus:
         assert "English:" in formatted
         assert "Nahuatl:" in formatted
         lines = formatted.strip().split("\n")
-        assert len(lines) == 4  # 2 entries * 2 lines each
+        assert len(lines) == 4
 
     def test_format_as_reference_empty(self, mini_corpus_entries):
         formatted = mini_corpus_entries.format_as_reference([], src_lang="en")
         assert formatted == ""
 
     def test_search_god_genesis(self, mini_corpus_entries):
-        """Search for 'God created heaven' should match Genesis entries."""
         results = mini_corpus_entries.search("God created heaven", src_lang="en", max_results=5)
         assert len(results) > 0
         texts = [r.english for r in results]
@@ -133,7 +129,6 @@ class TestParallelCorpus:
         assert any("tortilla" in r.english.lower() for r in results)
 
     def test_empty_corpus_search(self):
-        """Searching an empty (unloaded) corpus should return empty list."""
         corpus = ParallelCorpus()
         assert corpus.loaded is False
         results = corpus.search("hello", src_lang="en")
@@ -141,12 +136,10 @@ class TestParallelCorpus:
 
 
 # ===================================================================
-# Corpus loading from Excel (requires file on disk)
+# Corpus loading from Excel (supplementary data source)
 # ===================================================================
 
 class TestCorpusXlsxLoading:
-    """Tests for loading the actual corpus Excel file."""
-
     @pytest.mark.skipif(
         not __import__("os").path.isfile(
             str(__import__("pathlib").Path(__file__).resolve().parents[1] / "data" / "english_to_nahuatl_parallel.xlsx")
@@ -157,7 +150,7 @@ class TestCorpusXlsxLoading:
         corpus = ParallelCorpus()
         corpus.load_xlsx(corpus_xlsx_path)
         assert corpus.loaded is True
-        assert len(corpus.entries) > 1000, f"Expected 7000+ entries, got {len(corpus.entries)}"
+        assert len(corpus.entries) > 1000
 
     @pytest.mark.skipif(
         not __import__("os").path.isfile(
@@ -178,7 +171,6 @@ class TestCorpusXlsxLoading:
         assert len(corpus.entries) == 0
 
     def test_entries_have_content(self, mini_corpus_entries):
-        """All entries should have non-empty english and nahuatl fields."""
         for entry in mini_corpus_entries.entries:
-            assert entry.english.strip(), "English text should not be empty"
-            assert entry.nahuatl.strip(), "Nahuatl text should not be empty"
+            assert entry.english.strip()
+            assert entry.nahuatl.strip()

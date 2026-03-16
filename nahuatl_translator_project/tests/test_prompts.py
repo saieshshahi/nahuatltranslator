@@ -1,9 +1,16 @@
-"""Unit tests for webapp/prompts.py — prompt template builders."""
+"""Unit tests for webapp/prompts.py — AI-first prompt template builders.
+
+Tests verify that the prompts follow the AI-first architecture:
+- OpenAI is the primary expert translator
+- Corpus/dictionary are supplementary references only
+- Key warnings (hello≠cualli, possessives) are present
+- Few-shot examples guide the AI effectively
+"""
 
 import pytest
 from webapp.prompts import (
     LANG_LABELS,
-    NAHUATL_LINGUISTIC_CONTEXT,
+    NAHUATL_EXPERT_GUIDANCE,
     FEWSHOT_TRANSLATION_EXAMPLES,
     COLONIAL_NAHUATL_TRANSCRIPTION_CONTEXT,
     translation_system_prompt,
@@ -41,37 +48,47 @@ class TestLangLabels:
 
 
 # ===================================================================
-# Linguistic context tests
+# Expert guidance tests (AI-first approach)
 # ===================================================================
 
-class TestLinguisticContext:
-    def test_contains_morphology_rules(self):
-        assert "agglutinative" in NAHUATL_LINGUISTIC_CONTEXT
-        assert "polysynthetic" in NAHUATL_LINGUISTIC_CONTEXT
+class TestExpertGuidance:
+    """Verify the expert guidance is concise and focused on critical rules."""
 
-    def test_contains_verb_structure(self):
-        assert "SUBJECT_PREFIX" in NAHUATL_LINGUISTIC_CONTEXT
-        assert "OBJECT_PREFIX" in NAHUATL_LINGUISTIC_CONTEXT
+    def test_contains_greeting_warning(self):
+        """Must warn that hello ≠ cualli."""
+        assert "Pialli" in NAHUATL_EXPERT_GUIDANCE
+        assert "cualli" in NAHUATL_EXPERT_GUIDANCE.lower()
+        assert "NEVER" in NAHUATL_EXPERT_GUIDANCE
+
+    def test_contains_possessive_rule(self):
+        """Must enforce possessives as one word."""
+        assert "notoca" in NAHUATL_EXPERT_GUIDANCE
+        assert "nocal" in NAHUATL_EXPERT_GUIDANCE
+        assert "NEVER separate" in NAHUATL_EXPERT_GUIDANCE or "WRONG" in NAHUATL_EXPERT_GUIDANCE
 
     def test_contains_no_articles_rule(self):
-        assert "NO definite or indefinite articles" in NAHUATL_LINGUISTIC_CONTEXT
+        assert "NO ARTICLES" in NAHUATL_EXPERT_GUIDANCE or "no article" in NAHUATL_EXPERT_GUIDANCE.lower()
 
-    def test_contains_orthographic_conventions(self):
-        assert "ORTHOGRAPHIC CONVENTIONS" in NAHUATL_LINGUISTIC_CONTEXT
-        assert "hu = /w/" in NAHUATL_LINGUISTIC_CONTEXT
+    def test_contains_common_vocabulary(self):
+        """Should have key vocab reminders."""
+        assert "Pialli" in NAHUATL_EXPERT_GUIDANCE
+        assert "Niltze" in NAHUATL_EXPERT_GUIDANCE
+        assert "Tlazohcamati" in NAHUATL_EXPERT_GUIDANCE
+        assert "Quemah" in NAHUATL_EXPERT_GUIDANCE
 
-    def test_contains_pitfalls(self):
-        assert "COMMON TRANSLATION PITFALLS" in NAHUATL_LINGUISTIC_CONTEXT
-        assert "chocolatl" in NAHUATL_LINGUISTIC_CONTEXT
+    def test_guidance_is_concise(self):
+        """Expert guidance should be shorter than a full grammar textbook.
+        The old NAHUATL_LINGUISTIC_CONTEXT was ~2500+ chars. This should be leaner."""
+        assert len(NAHUATL_EXPERT_GUIDANCE) < 3000, (
+            f"Guidance is too long ({len(NAHUATL_EXPERT_GUIDANCE)} chars). "
+            "The AI already knows Nahuatl grammar — keep it concise."
+        )
 
-    def test_contains_dialect_notes(self):
-        assert "DIALECT/VARIETY NOTES" in NAHUATL_LINGUISTIC_CONTEXT
-        assert "Huasteca" in NAHUATL_LINGUISTIC_CONTEXT
+    def test_preserve_names_rule(self):
+        assert "PRESERVE NAMES" in NAHUATL_EXPERT_GUIDANCE or "proper names" in NAHUATL_EXPERT_GUIDANCE.lower()
 
-    def test_colonial_context_has_long_s(self):
+    def test_colonial_context_for_transcription(self):
         assert "Long-s" in COLONIAL_NAHUATL_TRANSCRIPTION_CONTEXT
-
-    def test_colonial_context_has_abbreviations(self):
         assert "xpo" in COLONIAL_NAHUATL_TRANSCRIPTION_CONTEXT
 
 
@@ -81,7 +98,7 @@ class TestLinguisticContext:
 
 class TestFewshot:
     def test_examples_exist(self):
-        assert len(FEWSHOT_TRANSLATION_EXAMPLES) >= 5
+        assert len(FEWSHOT_TRANSLATION_EXAMPLES) >= 10
 
     def test_examples_have_correct_structure(self):
         for ex in FEWSHOT_TRANSLATION_EXAMPLES:
@@ -112,15 +129,32 @@ class TestFewshot:
         formatted = _format_fewshot("de", "nah")
         assert len(formatted) > 0
 
+    def test_fewshot_includes_greeting_example(self):
+        """Must have a greeting example showing Pialli, not cualli."""
+        greeting_examples = [
+            ex for ex in FEWSHOT_TRANSLATION_EXAMPLES
+            if "hello" in ex[2].lower() or "pialli" in ex[3].lower()
+        ]
+        assert len(greeting_examples) >= 1, "Need at least one greeting example"
+
+    def test_fewshot_includes_possessive_example(self):
+        """Must have an example showing notoca as one word."""
+        possessive_examples = [
+            ex for ex in FEWSHOT_TRANSLATION_EXAMPLES
+            if "notoca" in ex[3].lower() or "nocal" in ex[3].lower()
+        ]
+        assert len(possessive_examples) >= 1, "Need possessive example"
+
 
 # ===================================================================
-# Translation prompt tests
+# Translation prompt tests (AI-first architecture)
 # ===================================================================
 
 class TestTranslationPrompts:
-    def test_system_prompt_contains_linguistic_context(self):
+    def test_system_prompt_positions_ai_as_expert(self):
+        """The system prompt should tell the AI it's the expert, not just a template filler."""
         prompt = translation_system_prompt("en", "nah", "")
-        assert "agglutinative" in prompt
+        assert "expert" in prompt.lower()
         assert "Nahuatl" in prompt
 
     def test_system_prompt_contains_direction(self):
@@ -135,41 +169,47 @@ class TestTranslationPrompts:
 
     def test_system_prompt_unknown_variety_ignored(self):
         prompt = translation_system_prompt("en", "nah", "Unknown")
-        assert "Unknown" not in prompt or "variety" not in prompt.lower().split("Unknown")[0][-50:]
+        # "Unknown" should not appear in variety instruction
+        assert "specified the dialect: Unknown" not in prompt
 
-    def test_system_prompt_contains_fewshot(self):
+    def test_system_prompt_contains_examples(self):
         prompt = translation_system_prompt("en", "nah", "")
-        assert "REFERENCE TRANSLATION EXAMPLES" in prompt
+        assert "EXAMPLES" in prompt
 
-    def test_system_prompt_contains_instructions(self):
+    def test_system_prompt_tells_ai_to_use_own_knowledge(self):
+        """Must instruct AI to use its own knowledge first, not blindly copy corpus."""
         prompt = translation_system_prompt("en", "nah", "")
-        assert "INSTRUCTIONS:" in prompt
+        assert "own knowledge" in prompt.lower() or "your own" in prompt.lower()
+
+    def test_system_prompt_output_only(self):
+        prompt = translation_system_prompt("en", "nah", "")
         assert "ONLY the translation" in prompt
 
     def test_user_prompt_contains_text(self):
         prompt = translation_user_prompt("Hello world", "en", "nah", "")
         assert "Hello world" in prompt
-        assert "TEXT TO TRANSLATE" in prompt
+        assert "TRANSLATE THIS" in prompt
 
-    def test_user_prompt_with_vocab(self):
+    def test_user_prompt_with_supplementary_vocab(self):
         prompt = translation_user_prompt(
             "Hello", "en", "nah", "",
-            reference_vocab='- "hello" → "niltze"',
+            reference_vocab='- "hello" → "Pialli"',
         )
-        assert "REFERENCE VOCABULARY" in prompt
-        assert "niltze" in prompt
+        assert "SUPPLEMENTARY VOCABULARY" in prompt
+        assert "Pialli" in prompt
+        # Must say it's optional/supplementary
+        assert "optional" in prompt.lower() or "supplementary" in prompt.lower()
 
-    def test_user_prompt_with_sentences(self):
+    def test_user_prompt_with_supplementary_sentences(self):
         prompt = translation_user_prompt(
             "Hello", "en", "nah", "",
             reference_sentences="- English: Hello\n  Nahuatl: Niltze",
         )
-        assert "REFERENCE PARALLEL SENTENCES" in prompt
+        assert "SUPPLEMENTARY" in prompt
 
     def test_user_prompt_no_context(self):
         prompt = translation_user_prompt("Hello", "en", "nah", "")
-        assert "REFERENCE VOCABULARY" not in prompt
-        assert "REFERENCE PARALLEL SENTENCES" not in prompt
+        assert "SUPPLEMENTARY" not in prompt
 
     def test_variants_system_prompt_extends_base(self):
         base = translation_system_prompt("en", "nah", "")

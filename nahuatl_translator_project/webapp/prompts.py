@@ -1,8 +1,10 @@
 """Domain-specific prompt templates for Nahuatl translation, transcription, and extraction.
 
-This module centralizes all system/user prompts so they can embed linguistic
-knowledge about Nahuatl (morphology, orthography, dialects) and inject
-contextual vocabulary from the parallel corpus.
+Architecture: OpenAI (GPT) is the PRIMARY translation engine. It already has
+strong knowledge of Nahuatl grammar, vocabulary, and morphology. Our prompts
+give it focused expert guidance and common-mistake warnings — NOT a full
+grammar textbook. The parallel corpus (biblical text) is used only as
+optional supplementary vocabulary for rare/archaic terms.
 """
 
 from __future__ import annotations
@@ -11,7 +13,7 @@ from typing import List, Tuple
 
 
 # ---------------------------------------------------------------------------
-# Language labels (shared with services.py)
+# Language labels
 # ---------------------------------------------------------------------------
 LANG_LABELS = {
     "en": "English",
@@ -25,77 +27,74 @@ def _label(code: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Core Nahuatl linguistic reference (injected into system prompts)
+# Core Nahuatl expert guidance (concise — the AI already knows the grammar)
 # ---------------------------------------------------------------------------
-NAHUATL_LINGUISTIC_CONTEXT = """\
-KEY NAHUATL GRAMMAR & MORPHOLOGY RULES:
-1. Nahuatl is an agglutinative, polysynthetic language. Words are built by
-   attaching multiple prefixes and suffixes to a root (e.g., ni-k-chihua =
-   "I make it"; ni- = "I", k- = "it", chihua = "make").
-2. Verb structure: SUBJECT_PREFIX + OBJECT_PREFIX + ROOT + TENSE/ASPECT SUFFIX.
-   Subject prefixes: ni- (I), ti- (you sg), ∅/Ø (he/she/it), ti- (we),
-   an- (you pl), ∅ (they). Object prefixes: nech- (me), mitz- (you),
-   k-/ki- (him/her/it), tech- (us), amech- (you pl), kin-/kim- (them).
-3. Nahuatl has NO definite or indefinite articles ("the"/"a"). Do NOT insert
-   articles in Nahuatl output. When translating TO English/Spanish, you may
-   need to add articles that have no Nahuatl equivalent.
-4. Default word order is often VSO (verb-subject-object) or VOS, though SVO
-   also occurs. Do NOT force English SVO order onto Nahuatl sentences.
-5. Possessive prefixes on nouns: no- (my), mo- (your), i- (his/her/its),
-   to- (our), amo- (your pl), in- (their). E.g., no-cal = "my house".
-6. Noun incorporation: objects can merge into the verb (e.g., ni-tlaxcal-chihua
-   = "I make tortillas" where tlaxcal- is incorporated).
-7. Locative suffixes: -co, -pan, -tlan, -can, -nahuac indicate location.
-   E.g., Mex-i-co = "place of the Mexica", Tlax-cal-lan = "place of tortillas".
-8. Absolutive suffix: standalone nouns often end in -tl, -tli, -li, or -in.
-   When possessed or incorporated, this suffix drops. E.g., cal-li (house)
-   → no-cal (my house).
-9. Pluralization: common patterns include reduplication of first syllable
-   (calli → cacalli "houses") or suffix changes (-meh, -tin).
-10. Reverential/honorific forms add -tzin (e.g., tlacatl → tlacatzintli).
+NAHUATL_EXPERT_GUIDANCE = """\
+CRITICAL RULES (these are the most common mistakes to avoid):
 
-ORTHOGRAPHIC CONVENTIONS:
-- Classical orthography: hu = /w/, qu = /k/ before e/i, cu = /kʷ/, tz = /ts/,
-  x = /ʃ/, tl = /tɬ/, ch = /tʃ/.
-- Modern/SEP orthography: w replaces hu, k replaces qu/c, s may replace z,
-  j may replace h. Both systems are valid; match the input's convention.
-- The saltillo (glottal stop) may appear as h, ʼ, or be omitted entirely.
-- Colonial-era texts use Spanish orthography conventions (e.g., "hu" for /w/).
+1. GREETINGS: "Hello"/"Hi" = Pialli or Niltze. NEVER use "cualli" for hello.
+   "Cualli" means "good" — it is used in "Cualli tonalli" (good day) but NOT alone as a greeting.
 
-COMMON TRANSLATION PITFALLS:
-- Do NOT transliterate Spanish/English words into Nahuatl. Nahuatl has its own
-  vocabulary. Only use Spanish/Nahuatl loanwords when they are genuinely used
-  (e.g., "Dios" is commonly used in modern Nahuatl for "God").
-- Reduplication changes meaning (intensity, plurality). Preserve it accurately.
-- Many Nahuatl words have entered English/Spanish (chocolate, tomato, avocado,
-  coyote). Use the original Nahuatl forms when translating back: chocolatl,
-  tomatl, ahuacatl, coyotl.
-- Verbal aspect (perfective vs. imperfective) is critical in Nahuatl and does
-  not map 1:1 to English tenses.
+2. POSSESSIVES ARE ONE WORD: Possessive prefixes (no-, mo-, i-, to-, amo-, in-)
+   attach directly to the noun stem. The absolutive suffix (-tl, -tli, -li) drops.
+   CORRECT: notoca (my name), nocal (my house), nocniuh (my friend)
+   WRONG: "no itoca", "no toca", "no calli" — NEVER separate with a space.
 
-DIALECT/VARIETY NOTES:
-- Central Nahuatl (Huasteca): uses tl extensively, most documented variety.
-- Huasteca Nahuatl: may simplify tl → t, different vocabulary items.
-- Guerrero Nahuatl: distinct phonological shifts.
-- Pipil (Nawat): spoken in El Salvador, significant divergence from Central.
-- When a variety/dialect is specified, adapt orthography and vocabulary accordingly.
-- If no variety is specified, default to Central/Classical Nahuatl conventions.\
+3. NO ARTICLES: Nahuatl has no "the"/"a". Do not insert articles in Nahuatl output.
+
+4. PRESERVE NAMES: Keep proper names as-is. Do not translate personal names.
+
+5. ORTHOGRAPHY: Accept both classical (hu, qu) and modern (w, k) spellings.
+   Default to classical orthography unless the user specifies otherwise.
+
+COMMON VOCABULARY REMINDERS:
+- Hello/Hi → Pialli (formal), Niltze (informal)
+- My name is [X] → Notoca [X]
+- What is your name? → ¿Tlein motoca?
+- How are you? → ¿Quen tica?
+- Thank you → Tlazohcamati
+- Yes → Quemah   |   No → Ahmo
+- I love you → Nimitztlazohtla
+- Goodbye → Timo ittazqueh
+- Water → Atl   |   House → Calli   |   My house → Nocal
+- Good morning → Cualli tlaneci
+- Good day → Cualli tonalli\
 """
 
 # ---------------------------------------------------------------------------
-# Few-shot translation examples
+# Few-shot translation examples (these are the main teaching tool for the AI)
 # ---------------------------------------------------------------------------
 FEWSHOT_TRANSLATION_EXAMPLES = [
+    # --- Greetings & introductions (EN→NAH) ---
+    ("en", "nah", "Hello, my name is Carlos.",
+     "Pialli, notoca Carlos."),
+    ("en", "nah", "Hi, how are you?",
+     "Niltze, ¿quen tica?"),
     ("en", "nah", "Good morning. How are you?",
-     "Cualli tonalli. ¿Quen otitlathuil?"),
+     "Cualli tlaneci. ¿Quen otitlathuil?"),
+    ("en", "nah", "Thank you very much.",
+     "Huel tlazohcamati."),
+    # --- Everyday sentences (EN→NAH) ---
     ("en", "nah", "The water is very cold.",
      "Atl huel itztic."),
     ("en", "nah", "I want to eat tortillas.",
      "Nicnequi nitlaxcalcuas."),
-    ("nah", "en", "Nejhua niPablo, nimechtlajtlanilia.",
-     "I, Paul, ask you all."),
+    ("en", "nah", "My house is near the mountain.",
+     "Nocal itzalan tepetl."),
+    ("en", "nah", "What is your name?",
+     "¿Tlein motoca?"),
+    # --- Nahuatl to English ---
+    ("nah", "en", "Pialli, notoca Maria. Nimitztlazohtla.",
+     "Hello, my name is Maria. I love you."),
+    ("nah", "en", "Nicnequi atl.",
+     "I want water."),
+    ("nah", "en", "Cualli tonalli. ¿Quen tica?",
+     "Good day. How are you?"),
+    # --- Spanish to Nahuatl ---
+    ("es", "nah", "Hola, ¿cómo te llamas?",
+     "Pialli, ¿tlein motoca?"),
     ("es", "nah", "Buenos días. ¿Cómo estás?",
-     "Cualli tonalli. ¿Quen tica?"),
+     "Cualli tlaneci. ¿Quen tica?"),
 ]
 
 
@@ -120,35 +119,38 @@ def _format_fewshot(src: str, tgt: str) -> str:
 # ---------------------------------------------------------------------------
 
 def translation_system_prompt(src: str, tgt: str, variety: str) -> str:
-    """Build a linguistically-informed system prompt for Nahuatl translation."""
+    """Build a focused system prompt for Nahuatl translation.
+
+    Philosophy: The AI is the primary expert. We give it concise guidance
+    and critical warnings, NOT a full grammar textbook.
+    """
     fewshot = _format_fewshot(src, tgt)
     variety_note = ""
     if variety and variety.lower() not in ("unknown", ""):
         variety_note = (
-            f"\nThe user has specified the variety/dialect: {variety}. "
-            f"Adapt your orthography and vocabulary to match this variety."
+            f"\nThe user has specified the dialect: {variety}. "
+            f"Adapt your orthography and vocabulary to match."
         )
 
     return f"""\
-You are an expert translator specializing in Nahuatl (Aztec language). You have \
-deep knowledge of Classical and modern Nahuatl grammar, morphology, and vocabulary.
+You are an expert Nahuatl (Aztec language) translator with deep knowledge of \
+Classical and modern Nahuatl. You handle grammar, morphology, and vocabulary natively.
 
-{NAHUATL_LINGUISTIC_CONTEXT}
+{NAHUATL_EXPERT_GUIDANCE}
 {variety_note}
 
 TRANSLATION DIRECTION: {_label(src)} → {_label(tgt)}
 
-REFERENCE TRANSLATION EXAMPLES:
+EXAMPLES:
 {fewshot}
 
 INSTRUCTIONS:
-- Translate faithfully, preserving the meaning, tone, and intent of the original.
-- Preserve proper names, numbers, and dates as-is (do not translate names).
+- Translate faithfully, preserving meaning, tone, and intent.
+- Preserve proper names, numbers, and dates as-is.
 - Output ONLY the translation in {_label(tgt)}. No commentary, no explanations.
-- If a word has no direct equivalent, use the closest culturally appropriate term \
-and do NOT fall back to Spanish/English unless the loanword is established in Nahuatl.
-- When vocabulary reference entries are provided in the user message, use them as \
-guides to anchor your translation but do not copy them blindly if context differs.\
+- Use your own knowledge as the primary source. If supplementary vocabulary is \
+provided in the user message, treat it as optional reference — do not blindly copy it.
+- If a word has no direct equivalent, use the closest culturally appropriate term.\
 """
 
 
@@ -160,29 +162,28 @@ def translation_user_prompt(
     reference_vocab: str = "",
     reference_sentences: str = "",
 ) -> str:
-    """Build the user prompt for a translation call, with optional corpus context."""
+    """Build the user prompt for a translation call, with optional supplementary context."""
     parts = []
 
     if reference_vocab:
         parts.append(
-            f"REFERENCE VOCABULARY (use these as guides, not strict templates):\n"
+            f"SUPPLEMENTARY VOCABULARY (optional reference from corpus — use your own knowledge first):\n"
             f"{reference_vocab}"
         )
 
     if reference_sentences:
         parts.append(
-            f"REFERENCE PARALLEL SENTENCES (for context — adapt, do not copy):\n"
+            f"SUPPLEMENTARY PARALLEL EXAMPLES (from biblical corpus — adapt style to match the input):\n"
             f"{reference_sentences}"
         )
 
-    parts.append(f"TEXT TO TRANSLATE:\n{text.strip()}")
+    parts.append(f"TRANSLATE THIS:\n{text.strip()}")
 
     return "\n\n".join(parts)
 
 
 def translation_variants_system_prompt(src: str, tgt: str, variety: str) -> str:
-    """System prompt for variant generation — same core knowledge, slightly
-    different instructions to encourage diverse phrasings."""
+    """System prompt for variant generation."""
     base = translation_system_prompt(src, tgt, variety)
     return (
         base + "\n\n"

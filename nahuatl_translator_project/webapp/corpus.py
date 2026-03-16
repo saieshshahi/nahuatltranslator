@@ -1,8 +1,12 @@
-"""Parallel corpus loader and keyword-based context retrieval.
+"""Supplementary parallel corpus loader and keyword-based context retrieval.
+
+Architecture: OpenAI (GPT) is the PRIMARY translator. This module provides
+SUPPLEMENTARY sentence-level reference from the biblical parallel corpus.
+The AI should use these as optional vocabulary guidance, not as the main
+translation source.
 
 At startup, parses data/english_to_nahuatl_parallel.xlsx into an in-memory
-index. Before each OpenAI translation call, the caller can search for
-relevant parallel sentence pairs to inject as reference context.
+index for keyword-based lookup of relevant parallel pairs.
 """
 
 from __future__ import annotations

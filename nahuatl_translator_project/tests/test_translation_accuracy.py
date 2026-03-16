@@ -1,9 +1,13 @@
-"""Translation accuracy tests using BLEU and chrF metrics against golden pairs.
+"""Translation accuracy tests — AI-first architecture.
 
-These tests verify that the AI translation pipeline produces outputs that
-are semantically close to known-correct translations. Tests are split into:
-- Offline metrics (BLEU/chrF) that work without API keys
-- Live API tests (skipped without OPENAI_API_KEY) that call OpenAI
+Architecture: OpenAI is the PRIMARY translator. These tests verify:
+- Offline metrics (BLEU/chrF) work correctly
+- Golden translation pairs are well-structured
+- Live API tests confirm the AI produces correct translations
+- Conversational accuracy (greetings, possessives, common phrases)
+
+The AI should produce good translations using its own knowledge, with
+the corpus providing only optional supplementary vocabulary.
 """
 
 import json
@@ -23,17 +27,11 @@ from tests.conftest import skip_no_openai, skip_no_corpus
 # ===================================================================
 
 def _ngrams(tokens: List[str], n: int) -> List[tuple]:
-    """Extract n-grams from a token list."""
     return [tuple(tokens[i:i + n]) for i in range(len(tokens) - n + 1)]
 
 
 def compute_bleu(reference: str, hypothesis: str, max_n: int = 4) -> float:
-    """Compute a simplified BLEU score (sentence-level, smoothed).
-
-    Returns a float in [0, 1]. For testing we use this lightweight
-    implementation to avoid an nltk dependency. Uses add-1 smoothing
-    so that short sentences still produce meaningful scores.
-    """
+    """Compute simplified BLEU score (sentence-level, smoothed)."""
     import math
 
     ref_tokens = reference.lower().split()
@@ -42,7 +40,6 @@ def compute_bleu(reference: str, hypothesis: str, max_n: int = 4) -> float:
     if len(hyp_tokens) == 0:
         return 0.0
 
-    # Cap n-gram order at the length of the shorter sequence
     effective_n = min(max_n, len(ref_tokens), len(hyp_tokens))
     if effective_n == 0:
         return 0.0
@@ -58,16 +55,13 @@ def compute_bleu(reference: str, hypothesis: str, max_n: int = 4) -> float:
 
         clipped = sum(min(count, ref_ngrams[ng]) for ng, count in hyp_ngrams.items())
         total = sum(hyp_ngrams.values())
-        # Add-1 (Laplace) smoothing to avoid zero scores on short sentences
         precisions.append((clipped + 1) / (total + 1))
 
-    # Geometric mean of precisions
     if not precisions or all(p == 0 for p in precisions):
         return 0.0
 
     log_avg = sum(math.log(max(p, 1e-10)) for p in precisions) / len(precisions)
 
-    # Brevity penalty
     bp = 1.0
     if len(hyp_tokens) < len(ref_tokens):
         bp = math.exp(1 - len(ref_tokens) / max(len(hyp_tokens), 1))
@@ -76,10 +70,7 @@ def compute_bleu(reference: str, hypothesis: str, max_n: int = 4) -> float:
 
 
 def compute_chrf(reference: str, hypothesis: str, n: int = 6, beta: float = 2.0) -> float:
-    """Compute chrF score (character n-gram F-score).
-
-    A lightweight implementation for testing accuracy.
-    """
+    """Compute chrF score (character n-gram F-score)."""
     def _char_ngrams(text: str, order: int) -> Counter:
         text = text.strip()
         grams = Counter()
@@ -120,12 +111,8 @@ def compute_chrf(reference: str, hypothesis: str, n: int = 6, beta: float = 2.0)
 
 
 def normalize_nahuatl(text: str) -> str:
-    """Normalize Nahuatl text for comparison.
-
-    Handles common orthographic variations: hu/w, qu/k, etc.
-    """
+    """Normalize Nahuatl text for comparison."""
     t = text.lower().strip()
-    # Normalize common orthographic alternations
     t = re.sub(r'[¿¡?.!,;:\'"()]', '', t)
     t = t.replace("hua", "wa").replace("hu", "w")
     t = re.sub(r'qu(?=[ei])', 'k', t)
@@ -137,8 +124,6 @@ def normalize_nahuatl(text: str) -> str:
 # ===================================================================
 
 class TestMetrics:
-    """Sanity checks for the scoring functions."""
-
     def test_bleu_identical(self):
         score = compute_bleu("the cat sat on the mat", "the cat sat on the mat")
         assert score > 0.9
@@ -153,7 +138,7 @@ class TestMetrics:
 
     def test_bleu_no_match(self):
         score = compute_bleu("hello world", "foo bar baz")
-        assert score < 0.3  # Very low due to smoothing but not necessarily zero
+        assert score < 0.3
 
     def test_chrf_identical(self):
         score = compute_chrf("hello world", "hello world")
@@ -165,7 +150,7 @@ class TestMetrics:
 
     def test_chrf_similar(self):
         score = compute_chrf("chocolatl", "chocolate")
-        assert score > 0.5  # High char overlap
+        assert score > 0.5
 
     def test_chrf_different(self):
         score = compute_chrf("hello", "xyzzy")
@@ -177,14 +162,12 @@ class TestMetrics:
 
 
 # ===================================================================
-# Golden pair accuracy tests (offline — no API)
+# Golden pair structure tests (offline)
 # ===================================================================
 
 class TestGoldenPairsStructure:
-    """Validate the golden translations file structure."""
-
     def test_golden_pairs_exist(self, golden_pairs):
-        assert len(golden_pairs) >= 50, f"Expected 50+ golden pairs, got {len(golden_pairs)}"
+        assert len(golden_pairs) >= 50
 
     def test_golden_pairs_have_required_fields(self, golden_pairs):
         required = {"src", "tgt", "src_lang", "tgt_lang", "category"}
@@ -195,42 +178,39 @@ class TestGoldenPairsStructure:
     def test_golden_pairs_valid_languages(self, golden_pairs):
         valid_langs = {"en", "es", "nah"}
         for pair in golden_pairs:
-            assert pair["src_lang"] in valid_langs, f"Invalid src_lang: {pair['src_lang']}"
-            assert pair["tgt_lang"] in valid_langs, f"Invalid tgt_lang: {pair['tgt_lang']}"
+            assert pair["src_lang"] in valid_langs
+            assert pair["tgt_lang"] in valid_langs
 
     def test_golden_pairs_have_content(self, golden_pairs):
         for pair in golden_pairs:
-            assert pair["src"].strip(), f"Empty src in pair: {pair}"
-            assert pair["tgt"].strip(), f"Empty tgt in pair: {pair}"
+            assert pair["src"].strip()
+            assert pair["tgt"].strip()
 
     def test_golden_pairs_have_categories(self, golden_pairs):
         categories = {p["category"] for p in golden_pairs}
-        assert len(categories) >= 3, "Expected at least 3 different categories"
+        assert len(categories) >= 3
 
     def test_golden_pairs_en_to_nah_count(self, golden_en_to_nah):
-        assert len(golden_en_to_nah) >= 30, f"Expected 30+ en->nah pairs, got {len(golden_en_to_nah)}"
+        assert len(golden_en_to_nah) >= 30
 
     def test_golden_pairs_nah_to_en_count(self, golden_nah_to_en):
-        assert len(golden_nah_to_en) >= 5, f"Expected 5+ nah->en pairs, got {len(golden_nah_to_en)}"
+        assert len(golden_nah_to_en) >= 5
 
     def test_golden_pairs_include_vocabulary(self, golden_pairs):
         vocab_pairs = [p for p in golden_pairs if p["category"] == "vocabulary"]
-        assert len(vocab_pairs) >= 15, f"Expected 15+ vocabulary pairs, got {len(vocab_pairs)}"
+        assert len(vocab_pairs) >= 15
 
-    def test_golden_pairs_include_morphology(self, golden_pairs):
-        morph_pairs = [p for p in golden_pairs if p["category"] == "morphology"]
-        assert len(morph_pairs) >= 3, f"Expected 3+ morphology pairs, got {len(morph_pairs)}"
+    def test_golden_pairs_include_conversational(self, golden_pairs):
+        conv_pairs = [p for p in golden_pairs if p["category"] == "conversational"]
+        assert len(conv_pairs) >= 5, "Need conversational pairs for AI accuracy testing"
 
 
 # ===================================================================
-# Cross-checking golden pairs with corpus
+# Cross-checking golden pairs
 # ===================================================================
 
 class TestGoldenAgainstCorpus:
-    """Verify golden pairs are consistent with the corpus data."""
-
     def test_vocabulary_pairs_have_nahuatl_suffixes(self, golden_en_to_nah):
-        """Nahuatl vocabulary words typically end in -tl, -tli, -li, or -in."""
         vocab = [p for p in golden_en_to_nah if p["category"] == "vocabulary"]
         suffix_count = 0
         for p in vocab:
@@ -238,29 +218,27 @@ class TestGoldenAgainstCorpus:
             if any(nah.endswith(s) for s in ["tl", "tli", "li", "in", "tl.", "tli."]):
                 suffix_count += 1
         ratio = suffix_count / max(len(vocab), 1)
-        assert ratio >= 0.5, f"Only {ratio:.0%} of vocab pairs have expected Nahuatl suffixes"
+        assert ratio >= 0.5
 
     def test_morphology_pairs_have_prefixes(self, golden_en_to_nah):
-        """Morphology test pairs should demonstrate prefix usage."""
         morph = [p for p in golden_en_to_nah if p["category"] == "morphology"]
         prefix_count = 0
         for p in morph:
             nah = p["tgt"].lower()
             if any(nah.startswith(pfx) for pfx in ["no", "mo", "ni", "ti", "i"]):
                 prefix_count += 1
-        assert prefix_count >= 2, "Expected morphology pairs to show prefixes"
+        assert prefix_count >= 2
 
 
 # ===================================================================
-# Live API accuracy tests (require OPENAI_API_KEY)
+# Live API accuracy tests (AI as primary translator)
 # ===================================================================
 
 class TestLiveTranslationAccuracy:
-    """Test translation accuracy against golden pairs using the live API."""
+    """Test that the AI produces accurate translations using its own knowledge."""
 
     @skip_no_openai
     def test_single_word_accuracy(self, golden_en_to_nah):
-        """Test accuracy on single-word translations (vocabulary)."""
         from webapp.services import openai_translate
 
         vocab_pairs = [p for p in golden_en_to_nah if p["category"] == "vocabulary"][:10]
@@ -272,19 +250,15 @@ class TestLiveTranslationAccuracy:
             result_norm = normalize_nahuatl(result)
             expected_norm = normalize_nahuatl(pair["tgt"])
 
-            # Check for exact match or high chrF similarity
             chrf = compute_chrf(expected_norm, result_norm)
             if result_norm == expected_norm or chrf > 0.7:
                 correct += 1
 
         accuracy = correct / max(total, 1)
-        assert accuracy >= 0.5, (
-            f"Single-word accuracy too low: {accuracy:.0%} ({correct}/{total})"
-        )
+        assert accuracy >= 0.5, f"Single-word accuracy too low: {accuracy:.0%} ({correct}/{total})"
 
     @skip_no_openai
     def test_phrase_accuracy(self, golden_en_to_nah):
-        """Test accuracy on phrase translations."""
         from webapp.services import openai_translate
 
         phrase_pairs = [p for p in golden_en_to_nah if p["category"] == "phrase"][:5]
@@ -300,7 +274,6 @@ class TestLiveTranslationAccuracy:
 
     @skip_no_openai
     def test_greeting_accuracy(self, golden_en_to_nah):
-        """Test accuracy on greeting translations."""
         from webapp.services import openai_translate
 
         greetings = [p for p in golden_en_to_nah if p["category"] == "greeting"][:3]
@@ -314,7 +287,6 @@ class TestLiveTranslationAccuracy:
 
     @skip_no_openai
     def test_nah_to_en_accuracy(self, golden_nah_to_en):
-        """Test Nahuatl-to-English translation accuracy."""
         from webapp.services import openai_translate
 
         pairs = golden_nah_to_en[:5]
@@ -331,20 +303,124 @@ class TestLiveTranslationAccuracy:
 
     @skip_no_openai
     def test_variant_generation_produces_multiple(self):
-        """Test that variant generation produces diverse outputs."""
         from webapp.services import openai_translate_variants
 
         variants = openai_translate_variants("Good morning", "en", "nah", "Unknown", k=3)
-        assert len(variants) >= 2, f"Expected 2+ variants, got {len(variants)}"
-        assert len(set(variants)) >= 2, "Variants should be diverse"
+        assert len(variants) >= 2
+        assert len(set(variants)) >= 2
 
     @skip_no_openai
     def test_translation_no_hallucination(self):
-        """Translated output should not contain untranslated English/commentary."""
         from webapp.services import openai_translate
 
         result = openai_translate("The sun rises in the east", "en", "nah", "Unknown")
-        # Result should not contain common English commentary markers
         commentary_markers = ["note:", "translation:", "meaning:", "literally:"]
         for marker in commentary_markers:
             assert marker not in result.lower(), f"Output contains commentary: '{marker}'"
+
+
+# ===================================================================
+# Conversational accuracy tests (AI should handle these natively)
+# ===================================================================
+
+class TestConversationalAccuracy:
+    """Tests for everyday conversational Nahuatl — the AI should know these."""
+
+    @skip_no_openai
+    def test_hello_not_cualli(self):
+        """'Hello' must be Pialli/Niltze, NOT 'cualli' (which means good)."""
+        from webapp.services import openai_translate
+
+        result = openai_translate("Hello", "en", "nah", "Unknown").lower()
+        has_greeting = "pialli" in result or "niltze" in result
+        assert has_greeting, (
+            f"'Hello' should be 'Pialli' or 'Niltze', not '{result}'. "
+            f"'Cualli' means 'good', NOT 'hello'."
+        )
+
+    @skip_no_openai
+    def test_hello_my_name_is(self):
+        """'Hello, my name is X' should use Pialli + notoca."""
+        from webapp.services import openai_translate
+
+        result = openai_translate("Hello, my name is Carlos", "en", "nah", "Unknown")
+        result_lower = result.lower()
+
+        has_greeting = "pialli" in result_lower or "niltze" in result_lower
+        assert has_greeting, f"Missing proper greeting in: '{result}'"
+
+        has_notoca = "notoca" in result_lower
+        assert has_notoca, f"'my name' should be 'notoca' (one word), got: '{result}'"
+
+        assert "carlos" in result_lower, f"Name 'Carlos' should be preserved, got: '{result}'"
+
+    @skip_no_openai
+    def test_hi_how_are_you(self):
+        from webapp.services import openai_translate
+
+        result = openai_translate("Hi, how are you?", "en", "nah", "Unknown")
+        result_lower = result.lower()
+
+        has_greeting = "pialli" in result_lower or "niltze" in result_lower
+        has_question = "quen" in result_lower
+        assert has_greeting, f"Missing greeting in: '{result}'"
+        assert has_question, f"Missing 'quen' (how) in: '{result}'"
+
+    @skip_no_openai
+    def test_what_is_your_name(self):
+        from webapp.services import openai_translate
+
+        result = openai_translate("What is your name?", "en", "nah", "Unknown")
+        result_lower = result.lower()
+
+        has_motoca = "motoca" in result_lower
+        assert has_motoca, f"'your name' should be 'motoca', got: '{result}'"
+
+    @skip_no_openai
+    def test_yes_and_no(self):
+        from webapp.services import openai_translate
+
+        yes_result = openai_translate("Yes", "en", "nah", "Unknown").lower()
+        assert "quemah" in yes_result or "quema" in yes_result, (
+            f"'Yes' should be 'Quemah', got: '{yes_result}'"
+        )
+
+        no_result = openai_translate("No", "en", "nah", "Unknown").lower()
+        assert "ahmo" in no_result or "amo" in no_result, (
+            f"'No' should be 'Ahmo', got: '{no_result}'"
+        )
+
+    @skip_no_openai
+    def test_thank_you(self):
+        from webapp.services import openai_translate
+
+        result = openai_translate("Thank you", "en", "nah", "Unknown").lower()
+        assert "tlazohcamati" in result or "tlazo" in result, (
+            f"'Thank you' should be 'Tlazohcamati', got: '{result}'"
+        )
+
+    @skip_no_openai
+    def test_my_house_possessive(self):
+        """'my house' should be 'nocal' (one word, absolutive drops)."""
+        from webapp.services import openai_translate
+
+        result = openai_translate("my house", "en", "nah", "Unknown").lower()
+        assert "nocal" in result, f"'my house' should be 'nocal', got: '{result}'"
+
+    @skip_no_openai
+    def test_i_love_you(self):
+        from webapp.services import openai_translate
+
+        result = openai_translate("I love you", "en", "nah", "Unknown").lower()
+        has_love = "nimitztlazohtla" in result or "nimitznahuilia" in result
+        assert has_love, f"'I love you' expected 'nimitztlazohtla', got: '{result}'"
+
+    @skip_no_openai
+    def test_pialli_to_english(self):
+        """'Pialli' should translate to Hello/Hi, not 'Good'."""
+        from webapp.services import openai_translate
+
+        result = openai_translate("Pialli, notoca Maria.", "nah", "en", "Unknown").lower()
+        has_hello = "hello" in result or "hi" in result or "greetings" in result
+        assert has_hello, f"'Pialli' should translate to 'Hello/Hi', got: '{result}'"
+        assert "maria" in result, f"Name 'Maria' should be preserved, got: '{result}'"

@@ -472,6 +472,110 @@
       "tgt_lang": "en",
       "category": "morphology",
       "notes": "amo = not, ni- = I, c- = it, cahua = to leave"
+    },
+    {
+      "src": "Hello, my name is Carlos.",
+      "tgt": "Pialli, notoca Carlos.",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "conversational",
+      "notes": "Pialli=hello, notoca=my name (one word). NEVER cualli for hello."
+    },
+    {
+      "src": "Hi, how are you?",
+      "tgt": "Niltze, ¿quen tica?",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "conversational",
+      "notes": "Niltze=hi (casual). quen tica = how are you"
+    },
+    {
+      "src": "Hello",
+      "tgt": "Pialli",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "conversational",
+      "notes": "Standard greeting. NOT cualli (which means good)."
+    },
+    {
+      "src": "My name is Maria",
+      "tgt": "Notoca Maria",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "conversational",
+      "notes": "notoca = my name (one word with possessive no-). NOT no itoca."
+    },
+    {
+      "src": "Yes",
+      "tgt": "Quemah",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "conversational",
+      "notes": "Affirmative. Also: quema"
+    },
+    {
+      "src": "No",
+      "tgt": "Ahmo",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "conversational",
+      "notes": "Negative. Also: amo"
+    },
+    {
+      "src": "I don't understand",
+      "tgt": "Ahmo nicmati",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "conversational",
+      "notes": "ahmo=not, ni-c-mati = I know it (negated)"
+    },
+    {
+      "src": "I love you",
+      "tgt": "Nimitztlazohtla",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "conversational",
+      "notes": "ni-mitz-tlazohtla = I-you-love"
+    },
+    {
+      "src": "my friend",
+      "tgt": "nocniuh",
+      "src_lang": "en",
+      "tgt_lang": "nah",
+      "category": "conversational",
+      "notes": "no- + icniuhtli (absolutive drops) = nocniuh"
+    },
+    {
+      "src": "Pialli, notoca Juan.",
+      "tgt": "Hello, my name is Juan.",
+      "src_lang": "nah",
+      "tgt_lang": "en",
+      "category": "conversational",
+      "notes": "Pialli=hello, notoca=my name"
+    },
+    {
+      "src": "Nimitztlazohtla",
+      "tgt": "I love you",
+      "src_lang": "nah",
+      "tgt_lang": "en",
+      "category": "conversational",
+      "notes": "ni-mitz-tlazohtla"
+    },
+    {
+      "src": "Hola, me llamo Pedro.",
+      "tgt": "Pialli, notoca Pedro.",
+      "src_lang": "es",
+      "tgt_lang": "nah",
+      "category": "conversational_es",
+      "notes": "Spanish intro to Nahuatl"
+    },
+    {
+      "src": "Sí",
+      "tgt": "Quemah",
+      "src_lang": "es",
+      "tgt_lang": "nah",
+      "category": "conversational_es",
+      "notes": "Spanish yes to Nahuatl"
     }
   ]
 }

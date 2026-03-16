@@ -1,5 +1,10 @@
 """Service layer used by the web UI.
 
+Architecture: OpenAI (GPT) is the PRIMARY translation engine. It already has
+strong knowledge of Nahuatl. The parallel corpus (biblical text) and dictionary
+are used only as OPTIONAL supplementary vocabulary — they help with rare/archaic
+terms but should never override the AI's own knowledge.
+
 This module intentionally lazy-loads heavy ML dependencies (torch/transformers)
 so lightweight utilities can be imported without requiring those packages.
 """
@@ -137,9 +142,14 @@ def openai_available() -> bool:
 
 
 def _get_corpus_context(text: str, src: str) -> Tuple[str, str]:
-    """Look up relevant parallel sentences and vocabulary from the corpus.
+    """Look up supplementary vocabulary from the parallel corpus.
 
-    Returns (reference_sentences, reference_vocab) strings ready for injection.
+    This is OPTIONAL context — the AI is the primary translator and already
+    knows Nahuatl. The corpus (mostly biblical text) provides additional
+    reference for rare or archaic terms only.
+
+    Returns (reference_sentences, reference_vocab) strings. Either or both
+    may be empty if the corpus isn't loaded or has no relevant matches.
     """
     from webapp.corpus import get_corpus
     from webapp.dictionary import get_dictionary
@@ -147,18 +157,23 @@ def _get_corpus_context(text: str, src: str) -> Tuple[str, str]:
     ref_sentences = ""
     ref_vocab = ""
 
-    # Sentence-level context from parallel corpus
-    corpus = get_corpus()
-    if corpus.loaded:
-        matches = corpus.search(query=text, src_lang=src, max_results=5)
-        ref_sentences = corpus.format_as_reference(matches, src_lang=src)
+    try:
+        # Light supplementary sentence context (just 3 matches, not 5)
+        corpus = get_corpus()
+        if corpus.loaded:
+            matches = corpus.search(query=text, src_lang=src, max_results=3)
+            ref_sentences = corpus.format_as_reference(matches, src_lang=src)
 
-    # Word-level vocabulary from dictionary index
-    dictionary = get_dictionary()
-    if dictionary.loaded:
-        ref_vocab = dictionary.format_vocab_block(
-            query=text, src_lang=src, max_entries=8,
-        )
+        # Light supplementary vocabulary (just 5 entries, not 8)
+        dictionary = get_dictionary()
+        if dictionary.loaded:
+            ref_vocab = dictionary.format_vocab_block(
+                query=text, src_lang=src, max_entries=5,
+            )
+    except Exception:
+        # Corpus/dictionary errors should never break translation.
+        # The AI can translate perfectly fine without them.
+        pass
 
     return ref_sentences, ref_vocab
 
@@ -170,8 +185,11 @@ def openai_translate(
     variety: str,
     model: Optional[str] = None,
 ) -> str:
-    """Primary translation using the OpenAI Responses API with
-    linguistically-informed Nahuatl prompts and corpus context injection.
+    """Primary translation using the OpenAI Responses API.
+
+    OpenAI is the primary translation engine — it already knows Nahuatl.
+    The parallel corpus provides optional supplementary vocabulary for
+    rare/archaic terms only.
 
     Requires OPENAI_API_KEY in the environment.
     """
@@ -183,7 +201,7 @@ def openai_translate(
 
     system = translation_system_prompt(src, tgt, variety)
 
-    # Inject relevant parallel corpus context
+    # Optional supplementary context from the corpus (AI is the primary source)
     ref_sentences, ref_vocab = _get_corpus_context(text, src)
     user = translation_user_prompt(
         text=text,
@@ -218,11 +236,10 @@ def openai_translate_variants(
     temperature: float = 0.6,
     model: Optional[str] = None,
 ) -> List[str]:
-    """Generate k translation variants with OpenAI using linguistically-informed
-    Nahuatl prompts and corpus context injection.
+    """Generate k translation variants with OpenAI.
 
-    The Responses API is optimized for a single output; for variant lists we issue
-    multiple calls with a moderate temperature and de-duplicate results.
+    OpenAI is the primary engine. The corpus provides optional supplementary
+    vocabulary only. Multiple calls with moderate temperature produce diversity.
     """
     from openai import OpenAI
     from webapp.prompts import translation_variants_system_prompt, translation_user_prompt
@@ -237,7 +254,7 @@ def openai_translate_variants(
 
     system = translation_variants_system_prompt(src, tgt, variety)
 
-    # Inject relevant parallel corpus context
+    # Optional supplementary context from the corpus
     ref_sentences, ref_vocab = _get_corpus_context(text, src)
     user = translation_user_prompt(
         text=text,

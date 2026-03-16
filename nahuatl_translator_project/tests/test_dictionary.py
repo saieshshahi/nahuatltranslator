@@ -1,4 +1,9 @@
-"""Unit tests for webapp/dictionary.py — morpheme splitter and vocabulary index."""
+"""Unit tests for webapp/dictionary.py — supplementary vocabulary index.
+
+The dictionary is a SUPPLEMENTARY resource — the AI is the primary translator.
+These tests verify the dictionary provides correct supplementary vocabulary
+lookups, morpheme splitting, and conversational vocab entries.
+"""
 
 import pytest
 from webapp.dictionary import (
@@ -7,6 +12,7 @@ from webapp.dictionary import (
     DictEntry,
     _extract_tokens,
     _content_tokens,
+    CONVERSATIONAL_VOCAB,
 )
 
 
@@ -25,8 +31,7 @@ class TestSplitMorphemes:
     def test_prefix_stripping_ni(self):
         """ni- subject prefix should be stripped."""
         segments = split_morphemes("nicchihua")
-        assert "nicchihua" in segments  # full word always present
-        # Should extract stem after stripping ni-
+        assert "nicchihua" in segments
         assert any(s != "nicchihua" for s in segments)
 
     def test_prefix_stripping_ti(self):
@@ -38,7 +43,6 @@ class TestSplitMorphemes:
         """Absolutive suffix -tl should be stripped."""
         segments = split_morphemes("chocolatl")
         assert "chocolatl" in segments
-        # Should find stem without -tl
         assert any("chocola" in s for s in segments)
 
     def test_suffix_stripping_tli(self):
@@ -47,7 +51,6 @@ class TestSplitMorphemes:
         assert len(segments) > 1
 
     def test_suffix_stripping_tzin(self):
-        """Reverential suffix -tzin should be stripped."""
         segments = split_morphemes("tlacatzin")
         assert "tlacatzin" in segments
         assert any("tlaca" in s for s in segments)
@@ -78,24 +81,19 @@ class TestSplitMorphemes:
         assert len(segments) > 1
 
     def test_deduplication(self):
-        """Results should not contain duplicate segments."""
         segments = split_morphemes("xochitl")
         assert len(segments) == len(set(segments))
 
     def test_full_word_always_first(self):
-        """The original word should always be the first element."""
         segments = split_morphemes("nitlaxcalchihua")
         assert segments[0] == "nitlaxcalchihua"
 
     def test_very_long_compound(self):
-        """A long compound word should still produce segments."""
         segments = split_morphemes("nitlaxcalchihualtia")
         assert len(segments) >= 2
 
     def test_word_without_known_affixes(self):
-        """A word with no recognized affixes should return just itself."""
         segments = split_morphemes("cualli")
-        # cualli is short enough or may match -li
         assert "cualli" in segments
 
     def test_empty_string(self):
@@ -107,8 +105,6 @@ class TestSplitMorphemes:
         assert segments == [""]
 
     def test_prefix_not_stripped_if_remainder_too_short(self):
-        """Prefix should not be stripped if the remaining stem is too short."""
-        # "nita" -> ni- prefix, but "ta" is only 2 chars
         segments = split_morphemes("nita")
         assert "nita" in segments
 
@@ -126,7 +122,6 @@ class TestTokenExtraction:
 
     def test_extract_tokens_short_filtered(self):
         tokens = _extract_tokens("I am ok")
-        # "am" and "ok" are 2 chars, should be filtered; "I" is 1 char
         assert len(tokens) == 0
 
     def test_content_tokens_english(self):
@@ -145,11 +140,11 @@ class TestTokenExtraction:
 
 
 # ===================================================================
-# NahuatlDictionary tests
+# NahuatlDictionary tests (supplementary vocabulary)
 # ===================================================================
 
 class TestNahuatlDictionary:
-    """Tests for the NahuatlDictionary class."""
+    """Tests for the NahuatlDictionary as a supplementary resource."""
 
     def test_dictionary_loaded(self, mini_dictionary):
         assert mini_dictionary.loaded is True
@@ -187,7 +182,7 @@ class TestNahuatlDictionary:
 
     def test_format_vocab_block_nonempty(self, mini_dictionary):
         block = mini_dictionary.format_vocab_block("water fire", src_lang="en")
-        assert block  # Should not be empty
+        assert block
         assert "→" in block
         assert "water" in block.lower()
 
@@ -204,8 +199,6 @@ class TestNahuatlDictionary:
         assert len(lines) <= 3
 
     def test_lookup_with_morpheme_splitting(self, mini_dictionary):
-        """Nahuatl lookup should try morpheme splits for compound words."""
-        # Add a compound entry that contains a known stem
         mini_dictionary._nah_to_en["tepetl"] = [
             DictEntry(term="tepetl", translation="mountain")
         ]
@@ -225,6 +218,56 @@ class TestNahuatlDictionary:
 
 
 # ===================================================================
+# Conversational vocabulary tests (supplements the biblical corpus)
+# ===================================================================
+
+class TestConversationalVocab:
+    """Verify conversational vocab supplements are loaded correctly."""
+
+    def test_conversational_vocab_exists(self):
+        assert len(CONVERSATIONAL_VOCAB) >= 50, (
+            f"Expected 50+ conversational entries, got {len(CONVERSATIONAL_VOCAB)}"
+        )
+
+    def test_hello_in_conversational_vocab(self):
+        """'hello' should map to Pialli."""
+        hello_entries = [v for k, v in CONVERSATIONAL_VOCAB if k == "hello"]
+        assert len(hello_entries) > 0
+        assert "Pialli" in hello_entries[0]
+
+    def test_my_name_in_conversational_vocab(self):
+        """'my name' should map to notoca."""
+        name_entries = [v for k, v in CONVERSATIONAL_VOCAB if k == "my name"]
+        assert len(name_entries) > 0
+        assert "notoca" in name_entries[0]
+
+    def test_hello_in_dictionary_lookup(self):
+        """After loading, 'hello' should produce Pialli from lookup."""
+        from webapp.dictionary import get_dictionary
+        d = get_dictionary()
+        results = d.lookup("hello", src_lang="en")
+        translations = [r[1].lower() for r in results]
+        assert any("pialli" in t for t in translations), (
+            f"'hello' should map to 'Pialli', got: {results}"
+        )
+
+    def test_name_in_dictionary_lookup(self):
+        """'name' should produce toca/notoca from lookup."""
+        from webapp.dictionary import get_dictionary
+        d = get_dictionary()
+        results = d.lookup("name", src_lang="en")
+        translations = " ".join(r[1].lower() for r in results)
+        assert "toca" in translations or "notoca" in translations
+
+    def test_vocab_block_for_hello(self):
+        """format_vocab_block for 'hello' should include Pialli."""
+        from webapp.dictionary import get_dictionary
+        d = get_dictionary()
+        block = d.format_vocab_block("hello my name", src_lang="en")
+        assert "pialli" in block.lower() or "Pialli" in block
+
+
+# ===================================================================
 # Real corpus dictionary loading
 # ===================================================================
 
@@ -239,7 +282,6 @@ class TestDictionaryFromCorpus:
         d = NahuatlDictionary()
         d.load_from_corpus_xlsx(corpus_xlsx_path)
         assert d.loaded is True
-        # Should have many entries
         assert len(d._en_to_nah) > 100
         assert len(d._nah_to_en) > 100
 

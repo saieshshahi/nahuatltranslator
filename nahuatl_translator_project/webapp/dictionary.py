@@ -1,12 +1,11 @@
-"""Dictionary & vocabulary enhancement layer for Nahuatl translation.
+"""Supplementary vocabulary layer for Nahuatl translation.
 
-Builds a fast word-level lookup index from the parallel corpus (and any
-future vocabulary files). Before each translation call, key terms are
-extracted from the input, looked up in the dictionary, and injected into
-the OpenAI prompt as a vocabulary reference block.
+Architecture: OpenAI (GPT) is the PRIMARY translator — it already knows
+Nahuatl grammar and vocabulary. This module provides SUPPLEMENTARY word-level
+lookups from the parallel corpus (biblical text) to help with rare or archaic
+terms. The AI should never blindly copy these entries.
 
-Includes a basic Nahuatl morpheme splitter that breaks compound words
-into recognizable stems for better dictionary matching.
+Includes a basic Nahuatl morpheme splitter for better dictionary matching.
 """
 
 from __future__ import annotations
@@ -113,20 +112,21 @@ def split_morphemes(word: str) -> List[str]:
 
 _WORD_RE = re.compile(r"[a-záéíóúñüā-ž]+", re.IGNORECASE)
 
-# English stop words (reuse concept from corpus.py but keep independent)
+# English stop words — minimal so that important words like pronouns and
+# possessives still get looked up (they map to Nahuatl prefixes).
 _EN_STOP: Set[str] = {
     "a", "an", "the", "is", "are", "was", "were", "be", "been", "being",
     "have", "has", "had", "do", "does", "did", "will", "would", "shall",
-    "should", "may", "might", "must", "can", "could", "of", "in", "to",
+    "should", "can", "could", "of", "in", "to",
     "for", "with", "on", "at", "from", "by", "as", "into", "through",
     "during", "before", "after", "above", "below", "between", "out",
     "off", "over", "under", "again", "further", "then", "once", "and",
-    "but", "or", "nor", "not", "no", "so", "if", "than", "too", "very",
+    "but", "or", "nor", "so", "if", "than", "too", "very",
     "just", "about", "up", "that", "this", "these", "those", "it", "its",
-    "i", "me", "my", "we", "our", "you", "your", "he", "him", "his",
-    "she", "her", "they", "them", "their", "what", "which", "who",
-    "when", "where", "how", "all", "each", "every", "both", "few",
-    "more", "most", "other", "some", "such", "only", "own", "same",
+    "such", "only", "own", "same",
+    # NOTE: "my", "your", "i", "he", "she", "we", "they", "not", "no",
+    # "hello", "name", "what", "who", "where", "when", "how" are intentionally
+    # NOT in this stop list because they have important Nahuatl equivalents.
 }
 
 
@@ -144,7 +144,11 @@ def _content_tokens(text: str, lang: str = "en") -> List[str]:
 
 
 class NahuatlDictionary:
-    """Word-level vocabulary index built from parallel corpus data."""
+    """Supplementary word-level vocabulary index built from parallel corpus data.
+
+    This provides OPTIONAL reference vocabulary for the AI translator.
+    The AI is the primary translator and should not blindly copy these entries.
+    """
 
     def __init__(self) -> None:
         # token → list of DictEntry
@@ -179,11 +183,10 @@ class NahuatlDictionary:
         self._nah_to_en.setdefault(nah_token, []).append(nah_entry)
 
     def load_from_corpus_xlsx(self, path: str) -> None:
-        """Build vocabulary index from the parallel corpus Excel file.
+        """Build supplementary vocabulary index from the parallel corpus Excel file.
 
-        For each parallel pair, we extract aligned tokens and create
-        word-level associations. Since we don't have word-level alignment,
-        we store the full sentence pair as context for each key token.
+        The corpus is primarily biblical text. These entries serve as additional
+        vocabulary reference for the AI — not as the primary translation source.
         """
         try:
             import openpyxl
@@ -244,10 +247,10 @@ class NahuatlDictionary:
         max_per_term: int = 2,
         max_total: int = 10,
     ) -> List[Tuple[str, str]]:
-        """Look up vocabulary for key terms in the query.
+        """Look up supplementary vocabulary for key terms in the query.
 
-        Returns a list of (term, translation_snippet) tuples. Translation
-        snippets are kept short — just the most relevant fragment.
+        Returns a list of (term, translation_snippet) tuples.
+        These are supplementary references — the AI should use its own knowledge first.
         """
         index = self._en_to_nah if src_lang == "en" else self._nah_to_en
 
@@ -272,11 +275,9 @@ class NahuatlDictionary:
 
             seen_terms.add(tok)
 
-            # Pick the shortest translation entries (most likely to be
-            # focused/relevant rather than long biblical passages)
+            # Pick the shortest translation entries (most focused/relevant)
             sorted_entries = sorted(entries, key=lambda e: len(e.translation))
             for entry in sorted_entries[:max_per_term]:
-                # Truncate long translations to a useful snippet
                 trans = entry.translation
                 if len(trans) > 80:
                     trans = trans[:77] + "..."
@@ -291,9 +292,9 @@ class NahuatlDictionary:
         self,
         query: str,
         src_lang: str = "en",
-        max_entries: int = 8,
+        max_entries: int = 5,
     ) -> str:
-        """Look up terms and format as a vocabulary reference block for prompts."""
+        """Look up terms and format as supplementary vocabulary reference for prompts."""
         matches = self.lookup(query, src_lang=src_lang, max_total=max_entries)
         if not matches:
             return ""
@@ -302,6 +303,128 @@ class NahuatlDictionary:
         for term, translation in matches:
             lines.append(f'- "{term}" → "{translation}"')
         return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Hardcoded conversational vocabulary (supplements the biblical corpus)
+# ---------------------------------------------------------------------------
+# The parallel corpus is primarily biblical text and lacks everyday vocabulary.
+# This curated list ensures common words produce correct supplementary hits.
+# NOTE: The AI already knows most of these — this just reinforces them.
+
+CONVERSATIONAL_VOCAB: List[Tuple[str, str]] = [
+    # Greetings
+    ("hello", "Pialli"),
+    ("hi", "Niltze"),
+    ("good morning", "Cualli tlaneci"),
+    ("good afternoon", "Cualli tonalli"),
+    ("good day", "Cualli tonalli"),
+    ("good night", "Cualli yohualli"),
+    ("goodbye", "Timo ittazqueh"),
+    ("thank you", "Tlazohcamati"),
+    ("thanks", "Tlazohcamati"),
+    ("please", "Nimitznotlatlauhtilia"),
+    ("yes", "Quemah"),
+    ("no", "Ahmo"),
+    # Introductions & personal
+    ("name", "toca (possessed: notoca = my name, motoca = your name)"),
+    ("my name", "notoca"),
+    ("your name", "motoca"),
+    ("friend", "icniuhtli (possessed: nocniuh = my friend)"),
+    ("my friend", "nocniuh"),
+    # Questions
+    ("how are you", "¿Quen tica?"),
+    ("what is your name", "¿Tlein motoca?"),
+    ("where", "canin"),
+    ("when", "queman"),
+    ("why", "tleica"),
+    ("what", "tlein"),
+    ("who", "aquin"),
+    # Common nouns
+    ("water", "atl"),
+    ("fire", "tletl"),
+    ("earth", "tlalli"),
+    ("wind", "ehecatl"),
+    ("sun", "tonatiuh"),
+    ("moon", "metztli"),
+    ("star", "citlalli"),
+    ("rain", "quiahuitl"),
+    ("house", "calli (possessed: nocal = my house)"),
+    ("my house", "nocal"),
+    ("food", "tlacualli"),
+    ("tortilla", "tlaxcalli"),
+    ("flower", "xochitl"),
+    ("song", "cuicatl"),
+    ("book", "amoxtli"),
+    ("heart", "yollotl"),
+    ("mountain", "tepetl"),
+    ("river", "atoyatl"),
+    ("road", "ohtli"),
+    ("dog", "chichi / itzcuintli"),
+    ("snake", "coatl"),
+    ("bird", "tototl"),
+    ("fish", "michin"),
+    ("tree", "cuahuitl"),
+    ("stone", "tetl"),
+    # People
+    ("man", "tlacatl"),
+    ("woman", "cihuatl"),
+    ("child", "conetl / piltzintli"),
+    ("father", "tahtli (possessed: notah = my father)"),
+    ("mother", "nantli (possessed: nonan = my mother)"),
+    # Common verbs
+    ("love", "tlazohtla (nimitztlazohtla = I love you)"),
+    ("eat", "cua (nitlacua = I eat)"),
+    ("drink", "atli / i (natli = I drink)"),
+    ("speak", "tlahtoa (nitlahtoa = I speak)"),
+    ("see", "itta (niquitta = I see it)"),
+    ("go", "yauh (niyauh = I go)"),
+    ("come", "huallauh (nihuallauh = I come)"),
+    ("want", "nequi (nicnequi = I want it)"),
+    ("know", "mati (nicmati = I know it)"),
+    # Adjectives
+    ("good", "cualli"),
+    ("big", "huei"),
+    ("small", "tepitzin"),
+    ("cold", "itztic / cecec"),
+    ("hot", "totonqui"),
+    ("new", "yancuic"),
+    # Numbers
+    ("one", "ce"),
+    ("two", "ome"),
+    ("three", "yei / ei"),
+    ("four", "nahui"),
+    ("five", "macuilli"),
+    ("ten", "mahtlactli"),
+    ("twenty", "cempohualli"),
+    # Abstract
+    ("god", "teotl (Christian God: Dios)"),
+    ("ruler", "tlatoani"),
+    ("warrior", "yaoquizqui"),
+]
+
+
+def _load_conversational_vocab(dictionary: NahuatlDictionary) -> None:
+    """Inject conversational vocabulary as supplementary entries.
+
+    These are added with high priority (short translations) so they
+    rank above long biblical corpus sentences in lookup results.
+    """
+    for en_term, nah_translation in CONVERSATIONAL_VOCAB:
+        en_key = en_term.lower().strip()
+        dictionary._en_to_nah.setdefault(en_key, []).insert(0, DictEntry(
+            term=en_key,
+            translation=nah_translation,
+            source="conversational-vocab",
+        ))
+        # Also index the Nahuatl side (first word only for multi-word translations)
+        nah_key = nah_translation.lower().split()[0].strip("()/")
+        if len(nah_key) >= 3:
+            dictionary._nah_to_en.setdefault(nah_key, []).insert(0, DictEntry(
+                term=nah_key,
+                translation=en_term,
+                source="conversational-vocab",
+            ))
 
 
 # ---------------------------------------------------------------------------
@@ -321,4 +444,8 @@ def get_dictionary() -> NahuatlDictionary:
             "english_to_nahuatl_parallel.xlsx",
         )
         _dictionary.load_from_corpus_xlsx(data_path)
+        _load_conversational_vocab(_dictionary)
+        if not _dictionary._loaded:
+            # Even without corpus, conversational vocab makes it usable
+            _dictionary._loaded = True
     return _dictionary
