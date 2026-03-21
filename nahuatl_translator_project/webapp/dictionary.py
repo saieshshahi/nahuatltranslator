@@ -182,6 +182,54 @@ class NahuatlDictionary:
         self._en_to_nah.setdefault(en_token, []).append(en_entry)
         self._nah_to_en.setdefault(nah_token, []).append(nah_entry)
 
+    def load_from_clics_json(self, path: str) -> None:
+        """Load clean vocabulary from CLICS (Cross-Linguistic Information on
+        Conceptual Structures) dataset. This is high-quality, pure Nahuatl
+        vocabulary without Spanish contamination — ideal supplementary data.
+        """
+        import json
+
+        if not os.path.isfile(path):
+            return
+
+        with open(path, "r", encoding="utf-8") as f:
+            entries = json.load(f)
+
+        for entry in entries:
+            nah = entry.get("nahuatl", "").strip()
+            en = entry.get("english", "").strip()
+            gloss = entry.get("gloss", en)
+            if not nah or not en:
+                continue
+
+            # Index by English concept tokens
+            for tok in set(_content_tokens(en, "en")):
+                self._en_to_nah.setdefault(tok, []).append(DictEntry(
+                    term=tok,
+                    translation=nah,
+                    source="clics",
+                ))
+
+            # Also index by gloss words (often more descriptive)
+            if gloss and gloss != en:
+                for tok in set(_content_tokens(gloss, "en")):
+                    if tok not in _EN_STOP:
+                        self._en_to_nah.setdefault(tok, []).append(DictEntry(
+                            term=tok,
+                            translation=nah,
+                            source="clics",
+                        ))
+
+            # Index Nahuatl → English
+            for tok in set(_extract_tokens(nah)):
+                self._nah_to_en.setdefault(tok, []).append(DictEntry(
+                    term=tok,
+                    translation=en,
+                    source="clics",
+                ))
+
+        self._loaded = True
+
     def load_from_corpus_xlsx(self, path: str) -> None:
         """Build supplementary vocabulary index from the parallel corpus Excel file.
 
@@ -398,7 +446,7 @@ CONVERSATIONAL_VOCAB: List[Tuple[str, str]] = [
     ("ten", "mahtlactli"),
     ("twenty", "cempohualli"),
     # Abstract
-    ("god", "teotl (Christian God: Dios)"),
+    ("god", "teotl"),
     ("ruler", "tlatoani"),
     ("warrior", "yaoquizqui"),
 ]
@@ -438,14 +486,20 @@ def get_dictionary() -> NahuatlDictionary:
     global _dictionary
     if _dictionary is None:
         _dictionary = NahuatlDictionary()
-        data_path = os.path.join(
-            os.path.dirname(os.path.dirname(__file__)),
-            "data",
-            "english_to_nahuatl_parallel.xlsx",
-        )
-        _dictionary.load_from_corpus_xlsx(data_path)
+        data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
+
+        # 1. Load CLICS vocabulary first (clean, no Spanish contamination)
+        clics_path = os.path.join(data_dir, "clics_nahuatl_vocab.json")
+        _dictionary.load_from_clics_json(clics_path)
+
+        # 2. Load biblical corpus vocabulary (may contain Spanish loanwords)
+        corpus_path = os.path.join(data_dir, "english_to_nahuatl_parallel.xlsx")
+        _dictionary.load_from_corpus_xlsx(corpus_path)
+
+        # 3. Load curated conversational vocab (highest priority)
         _load_conversational_vocab(_dictionary)
+
         if not _dictionary._loaded:
-            # Even without corpus, conversational vocab makes it usable
+            # Even without corpus/CLICS, conversational vocab makes it usable
             _dictionary._loaded = True
     return _dictionary

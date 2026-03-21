@@ -296,3 +296,45 @@ class TestDictionaryFromCorpus:
         d.load_from_corpus_xlsx(corpus_xlsx_path)
         results = d.lookup("God", src_lang="en")
         assert len(results) > 0, "Expected to find 'God' in biblical corpus"
+
+
+# ===================================================================
+# CLICS vocabulary loading
+# ===================================================================
+
+class TestCLICSVocab:
+    @pytest.mark.skipif(
+        not __import__("os").path.isfile(
+            str(__import__("pathlib").Path(__file__).resolve().parents[1] / "data" / "clics_nahuatl_vocab.json")
+        ),
+        reason="CLICS JSON file not found",
+    )
+    def test_load_clics_vocab(self):
+        import os
+        from pathlib import Path
+        d = NahuatlDictionary()
+        clics_path = str(Path(__file__).resolve().parents[1] / "data" / "clics_nahuatl_vocab.json")
+        d.load_from_clics_json(clics_path)
+        assert d.loaded is True
+        assert len(d._en_to_nah) > 100
+
+    @pytest.mark.skipif(
+        not __import__("os").path.isfile(
+            str(__import__("pathlib").Path(__file__).resolve().parents[1] / "data" / "clics_nahuatl_vocab.json")
+        ),
+        reason="CLICS JSON file not found",
+    )
+    def test_clics_lookup_water(self):
+        from pathlib import Path
+        d = NahuatlDictionary()
+        clics_path = str(Path(__file__).resolve().parents[1] / "data" / "clics_nahuatl_vocab.json")
+        d.load_from_clics_json(clics_path)
+        results = d.lookup("water", src_lang="en")
+        assert len(results) > 0, "CLICS should have 'water'"
+
+    def test_god_entry_no_spanish(self):
+        """The conversational vocab for 'god' should NOT mention Dios."""
+        god_entries = [v for k, v in CONVERSATIONAL_VOCAB if k == "god"]
+        assert len(god_entries) > 0
+        assert "Dios" not in god_entries[0], "god entry should not suggest Spanish 'Dios'"
+        assert "teotl" in god_entries[0]
