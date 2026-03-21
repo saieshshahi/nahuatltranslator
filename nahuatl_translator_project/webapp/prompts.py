@@ -94,6 +94,11 @@ FEWSHOT_TRANSLATION_EXAMPLES = [
      "Nocal itzalan tepetl."),
     ("en", "nah", "What is your name?",
      "¿Tlein motoca?"),
+    # --- Sentences with commonly Spanish-substituted words (EN→NAH) ---
+    ("en", "nah", "I know the priest and the god of the nation.",
+     "Nicmati teopixqui ihuan teotl in altepetl."),
+    ("en", "nah", "The king went to the church.",
+     "Tlatoani oyah teocalco."),
     # --- Nahuatl to English ---
     ("nah", "en", "Pialli, notoca Maria. Nimitztlazohtla.",
      "Hello, my name is Maria. I love you."),
@@ -156,12 +161,16 @@ EXAMPLES:
 {fewshot}
 
 INSTRUCTIONS:
+- LANGUAGE PURITY: When translating TO Nahuatl, every word in your output MUST be \
+Nahuatl. NEVER insert Spanish words (país, nación, iglesia, rey, Dios, sacerdote, etc.). \
+Use the Nahuatl equivalent: nation/country=altepetl, god=teotl, priest=teopixqui, \
+king=tlatoani, church=teocalli. If you catch yourself writing a Spanish word, replace it.
 - Translate faithfully, preserving meaning, tone, and intent.
 - Preserve proper names, numbers, and dates as-is.
 - Output ONLY the translation in {_label(tgt)}. No commentary, no explanations.
 - Use your own knowledge as the primary source. If supplementary vocabulary is \
 provided in the user message, treat it as optional reference — do not blindly copy it.
-- If a word has no direct equivalent, use the closest culturally appropriate term.\
+- If a word has no direct equivalent, use the closest culturally appropriate Nahuatl term.\
 """
 
 
