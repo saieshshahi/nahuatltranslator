@@ -47,6 +47,17 @@ CRITICAL RULES (these are the most common mistakes to avoid):
 5. ORTHOGRAPHY: Accept both classical (hu, qu) and modern (w, k) spellings.
    Default to classical orthography unless the user specifies otherwise.
 
+6. NO SPANISH MIXING: When translating TO Nahuatl, output ONLY Nahuatl words.
+   NEVER substitute Spanish words (like "país", "iglesia", "rey", "Dios") when
+   a Nahuatl equivalent exists. Use the Nahuatl term:
+   - nation/country → altepetl (or cemanahuac for "the world")
+   - king → tlatoani
+   - god → teotl
+   - church → teocalli (or teopantli)
+   - priest → teopixqui (or tlamacazqui)
+   Only use Spanish loanwords if no Nahuatl equivalent exists AND the word was
+   historically borrowed into Nahuatl (e.g., "caballo" → cahuayo).
+
 COMMON VOCABULARY REMINDERS:
 - Hello/Hi → Pialli (formal), Niltze (informal)
 - My name is [X] → Notoca [X]
@@ -182,14 +193,25 @@ def translation_user_prompt(
     return "\n\n".join(parts)
 
 
-def translation_variants_system_prompt(src: str, tgt: str, variety: str) -> str:
-    """System prompt for variant generation."""
+def translation_variants_system_prompt(src: str, tgt: str, variety: str, k: int = 3) -> str:
+    """System prompt for variant generation.
+
+    Asks the AI to produce all k variants in a single response, ensuring
+    genuine diversity without relying on temperature for variance.
+    """
     base = translation_system_prompt(src, tgt, variety)
     return (
         base + "\n\n"
-        "You are generating one of several possible translations. Produce a "
-        "faithful translation; your phrasing may vary but must remain accurate. "
-        "Prefer natural, idiomatic expression over literal word-for-word rendering."
+        f"Provide EXACTLY {k} distinct translation variants, numbered 1 through {k}.\n"
+        "Each variant must be a faithful, accurate translation but use DIFFERENT "
+        "word choices, sentence structure, or phrasing. All variants must be equally "
+        "correct — vary style, not accuracy.\n"
+        "Format:\n"
+        f"1. [first translation]\n"
+        f"2. [second translation]\n"
+        + (f"3. [third translation]\n" if k >= 3 else "")
+        + ("..." if k > 3 else "")
+        + "\nOutput ONLY the numbered translations. No commentary or explanations."
     )
 
 

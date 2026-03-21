@@ -227,6 +227,28 @@ def openai_translate(
         raise RuntimeError(f"OpenAI translation failed: {e}") from e
 
 
+def _parse_numbered_variants(text: str, k: int) -> List[str]:
+    """Parse numbered variant output like '1. ...\n2. ...\n3. ...' into a list."""
+    import re
+    lines = text.strip().splitlines()
+    variants: List[str] = []
+    seen = set()
+    for line in lines:
+        # Match lines starting with "1.", "2.", etc.
+        m = re.match(r"^\s*\d+[\.\)]\s*(.+)", line)
+        if m:
+            t = m.group(1).strip()
+            if t and t not in seen:
+                variants.append(t)
+                seen.add(t)
+    # If parsing failed (AI didn't number them), treat the whole output as one variant
+    if not variants:
+        t = text.strip()
+        if t:
+            variants.append(t)
+    return variants[:k]
+
+
 def openai_translate_variants(
     text: str,
     src: str,
@@ -236,10 +258,12 @@ def openai_translate_variants(
     temperature: float = 0.6,
     model: Optional[str] = None,
 ) -> List[str]:
-    """Generate k translation variants with OpenAI.
+    """Generate k translation variants with OpenAI in a single API call.
 
-    OpenAI is the primary engine. The corpus provides optional supplementary
-    vocabulary only. Multiple calls with moderate temperature produce diversity.
+    OpenAI is the primary engine. Instead of making k separate identical calls
+    and hoping temperature creates diversity, we ask the AI to produce all k
+    distinct variants in one response. Temperature controls creative expression,
+    not variant diversity.
     """
     from openai import OpenAI
     from webapp.prompts import translation_variants_system_prompt, translation_user_prompt
@@ -252,7 +276,7 @@ def openai_translate_variants(
     k = max(1, int(k))
     temperature = float(temperature)
 
-    system = translation_variants_system_prompt(src, tgt, variety)
+    system = translation_variants_system_prompt(src, tgt, variety, k=k)
 
     # Optional supplementary context from the corpus
     ref_sentences, ref_vocab = _get_corpus_context(text, src)
@@ -265,24 +289,17 @@ def openai_translate_variants(
         reference_sentences=ref_sentences,
     )
 
-    outs: List[str] = []
-    seen = set()
-    for _ in range(k):
-        resp = client.responses.create(
-            model=model,
-            temperature=temperature,
-            input=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
-        )
-        t = (resp.output_text or "").strip()
-        if t and t not in seen:
-            outs.append(t)
-            seen.add(t)
-        if len(outs) >= k:
-            break
-    return outs if outs else [""]
+    resp = client.responses.create(
+        model=model,
+        temperature=temperature,
+        input=[
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ],
+    )
+    raw = (resp.output_text or "").strip()
+    variants = _parse_numbered_variants(raw, k)
+    return variants if variants else [""]
 
 
 def _image_to_data_url(image_path: str) -> str:

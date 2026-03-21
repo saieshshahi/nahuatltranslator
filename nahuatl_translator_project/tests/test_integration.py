@@ -160,10 +160,10 @@ class TestServicesIntegrationMocked:
         assert "expert" in system_msg.lower()
         assert "Nahuatl" in system_msg
 
-    def test_openai_translate_variants_calls_api(self):
-        """Verify variant generation calls API multiple times."""
+    def test_openai_translate_variants_single_call(self):
+        """Verify variant generation uses a single API call with numbered output."""
         mock_resp = MagicMock()
-        mock_resp.output_text = "Cualli tonalli"
+        mock_resp.output_text = "1. Cualli tlaneci\n2. Cualli tonalli\n3. Yecualli tlaneci"
 
         mock_client = MagicMock()
         mock_client.responses.create.return_value = mock_resp
@@ -173,8 +173,12 @@ class TestServicesIntegrationMocked:
             from webapp.services import openai_translate_variants
             results = openai_translate_variants("Good morning", "en", "nah", "Unknown", k=3)
 
-        assert len(results) >= 1
-        assert mock_client.responses.create.call_count >= 1
+        assert len(results) == 3
+        assert results[0] == "Cualli tlaneci"
+        assert results[1] == "Cualli tonalli"
+        assert results[2] == "Yecualli tlaneci"
+        # Should be exactly 1 API call, not 3
+        assert mock_client.responses.create.call_count == 1
 
     def test_openai_extract_calls_api_with_entities(self):
         """Verify extraction includes entity taxonomy and disambiguation."""
@@ -301,6 +305,31 @@ class TestServiceHelpers:
             ref_sentences, ref_vocab = _get_corpus_context("hello", "en")
             assert ref_sentences == ""
             assert ref_vocab == ""
+
+    def test_parse_numbered_variants_normal(self):
+        from webapp.services import _parse_numbered_variants
+        text = "1. Pialli\n2. Niltze\n3. Cualli tonalli"
+        result = _parse_numbered_variants(text, 3)
+        assert result == ["Pialli", "Niltze", "Cualli tonalli"]
+
+    def test_parse_numbered_variants_with_parens(self):
+        from webapp.services import _parse_numbered_variants
+        text = "1) Pialli\n2) Niltze"
+        result = _parse_numbered_variants(text, 2)
+        assert result == ["Pialli", "Niltze"]
+
+    def test_parse_numbered_variants_fallback(self):
+        """If AI doesn't number the output, treat whole thing as one variant."""
+        from webapp.services import _parse_numbered_variants
+        text = "Pialli, notoca Carlos."
+        result = _parse_numbered_variants(text, 3)
+        assert result == ["Pialli, notoca Carlos."]
+
+    def test_parse_numbered_variants_deduplicates(self):
+        from webapp.services import _parse_numbered_variants
+        text = "1. Pialli\n2. Pialli\n3. Niltze"
+        result = _parse_numbered_variants(text, 3)
+        assert result == ["Pialli", "Niltze"]
 
 
 # ===================================================================

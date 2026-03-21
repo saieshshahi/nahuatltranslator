@@ -395,3 +395,12 @@ class TestCrossModuleEdgeCases:
             reference_sentences="- English: Hello\n  Nahuatl: Pialli",
         )
         assert "SUPPLEMENTARY" in prompt
+
+    def test_no_spanish_mixing_rule_in_guidance(self):
+        """Expert guidance must warn against Spanish word substitution."""
+        from webapp.prompts import NAHUATL_EXPERT_GUIDANCE
+
+        assert "altepetl" in NAHUATL_EXPERT_GUIDANCE
+        assert "tlatoani" in NAHUATL_EXPERT_GUIDANCE
+        assert "teotl" in NAHUATL_EXPERT_GUIDANCE
+        assert "SPANISH" in NAHUATL_EXPERT_GUIDANCE

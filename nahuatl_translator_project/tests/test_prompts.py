@@ -79,13 +79,20 @@ class TestExpertGuidance:
     def test_guidance_is_concise(self):
         """Expert guidance should be shorter than a full grammar textbook.
         The old NAHUATL_LINGUISTIC_CONTEXT was ~2500+ chars. This should be leaner."""
-        assert len(NAHUATL_EXPERT_GUIDANCE) < 3000, (
+        assert len(NAHUATL_EXPERT_GUIDANCE) < 3500, (
             f"Guidance is too long ({len(NAHUATL_EXPERT_GUIDANCE)} chars). "
             "The AI already knows Nahuatl grammar — keep it concise."
         )
 
     def test_preserve_names_rule(self):
         assert "PRESERVE NAMES" in NAHUATL_EXPERT_GUIDANCE or "proper names" in NAHUATL_EXPERT_GUIDANCE.lower()
+
+    def test_no_spanish_mixing_rule(self):
+        """Must warn against substituting Spanish words for Nahuatl equivalents."""
+        assert "NO SPANISH MIXING" in NAHUATL_EXPERT_GUIDANCE or "SPANISH" in NAHUATL_EXPERT_GUIDANCE
+        assert "altepetl" in NAHUATL_EXPERT_GUIDANCE
+        assert "tlatoani" in NAHUATL_EXPERT_GUIDANCE
+        assert "teotl" in NAHUATL_EXPERT_GUIDANCE
 
     def test_colonial_context_for_transcription(self):
         assert "Long-s" in COLONIAL_NAHUATL_TRANSCRIPTION_CONTEXT
@@ -213,9 +220,16 @@ class TestTranslationPrompts:
 
     def test_variants_system_prompt_extends_base(self):
         base = translation_system_prompt("en", "nah", "")
-        variants = translation_variants_system_prompt("en", "nah", "")
+        variants = translation_variants_system_prompt("en", "nah", "", k=3)
         assert len(variants) > len(base)
-        assert "variant" in variants.lower() or "phrasing" in variants.lower()
+        assert "3" in variants
+        assert "variant" in variants.lower() or "distinct" in variants.lower()
+
+    def test_variants_system_prompt_respects_k(self):
+        v2 = translation_variants_system_prompt("en", "nah", "", k=2)
+        v5 = translation_variants_system_prompt("en", "nah", "", k=5)
+        assert "2" in v2
+        assert "5" in v5
 
     def test_all_directions_produce_prompts(self):
         directions = [("en", "nah"), ("nah", "en"), ("es", "nah"), ("nah", "es")]
