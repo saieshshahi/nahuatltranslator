@@ -47,16 +47,15 @@ CRITICAL RULES (these are the most common mistakes to avoid):
 5. ORTHOGRAPHY: Accept both classical (hu, qu) and modern (w, k) spellings.
    Default to classical orthography unless the user specifies otherwise.
 
-6. NO SPANISH MIXING: When translating TO Nahuatl, output ONLY Nahuatl words.
-   NEVER substitute Spanish words (like "país", "iglesia", "rey", "Dios") when
-   a Nahuatl equivalent exists. Use the Nahuatl term:
-   - nation/country → altepetl (or cemanahuac for "the world")
-   - king → tlatoani
-   - god → teotl
-   - church → teocalli (or teopantli)
-   - priest → teopixqui (or tlamacazqui)
-   Only use Spanish loanwords if no Nahuatl equivalent exists AND the word was
-   historically borrowed into Nahuatl (e.g., "caballo" → cahuayo).
+6. ABSOLUTE LANGUAGE PURITY: Your Nahuatl output must contain ZERO Spanish words.
+   This is the most critical rule. Every single word you output must be Nahuatl.
+   Spanish and Nahuatl are completely different languages — never mix them.
+   If you are unsure whether a word is Nahuatl or Spanish, use a different Nahuatl word.
+   Common mistakes to avoid: pero→auh/yece, para→inic, como→quenin, porque→tleca,
+   cuando→queman, donde→canin, universidad→tlamachtiloyan, iglesia→teocalli,
+   dios→teotl, rey→tlatoani, sacerdote→teopixqui, nación→altepetl.
+   The ONLY exception: historically adopted loanwords with no Nahuatl equivalent
+   (e.g., "caballo" → cahuayo). If in doubt, use the Nahuatl word.
 
 COMMON VOCABULARY REMINDERS:
 - Hello/Hi → Pialli (formal), Niltze (informal)
@@ -161,10 +160,12 @@ EXAMPLES:
 {fewshot}
 
 INSTRUCTIONS:
-- LANGUAGE PURITY: When translating TO Nahuatl, every word in your output MUST be \
-Nahuatl. NEVER insert Spanish words (país, nación, iglesia, rey, Dios, sacerdote, etc.). \
-Use the Nahuatl equivalent: nation/country=altepetl, god=teotl, priest=teopixqui, \
-king=tlatoani, church=teocalli. If you catch yourself writing a Spanish word, replace it.
+- LANGUAGE PURITY (CRITICAL): When translating TO Nahuatl, your output must contain \
+ZERO Spanish words. Not one. Spanish and Nahuatl are completely different languages. \
+Check every word in your output — if it is Spanish, replace it with its Nahuatl equivalent. \
+Common Spanish words that must NEVER appear: pero, como, para, porque, cuando, donde, \
+también, siempre, nunca, universidad, iglesia, dios, rey, sacerdote, nación, país. \
+Use Nahuatl: auh/yece, quenin, inic, tleca, queman, canin, teocalli, teotl, tlatoani, etc.
 - Translate faithfully, preserving meaning, tone, and intent.
 - Preserve proper names, numbers, and dates as-is.
 - Output ONLY the translation in {_label(tgt)}. No commentary, no explanations.

@@ -16,6 +16,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set, Tuple
 
+from webapp.spanish_filter import count_spanish, spanish_ratio, strip_spanish
+
 
 @dataclass
 class ParallelEntry:
@@ -41,17 +43,6 @@ _STOP_WORDS: Set[str] = {
 }
 
 _WORD_RE = re.compile(r"[a-záéíóúñü]+", re.IGNORECASE)
-
-# Common Spanish loanwords found in colonial Nahuatl that should NOT be
-# treated as real Nahuatl vocabulary. Used to penalize corpus entries
-# that are heavily contaminated with Spanish.
-_SPANISH_LOANWORDS: Set[str] = {
-    "dios", "país", "iglesia", "rey", "señor", "padre", "santo",
-    "espíritu", "cristo", "sacerdote", "nación", "pueblo", "gracia",
-    "gloria", "pecado", "cielo", "mundo", "pero", "porque", "para",
-    "como", "cuando", "donde", "más", "después", "también", "entonces",
-    "sobre", "contra", "entre", "desde", "hasta", "según", "sino",
-}
 
 
 def _tokenize(text: str) -> List[str]:
@@ -144,7 +135,7 @@ class ParallelCorpus:
         if not scores:
             return []
 
-        # Normalize by entry length and penalize Spanish-contaminated entries
+        # Normalize by entry length and filter Spanish-contaminated entries
         scored = []
         for idx, raw_score in scores.items():
             entry = self.entries[idx]
@@ -152,16 +143,16 @@ class ParallelCorpus:
             word_count = max(1, len(text.split()))
             # Boost short-to-medium entries; penalize very long ones
             length_factor = min(1.0, 30.0 / word_count)
-            # Penalize entries with Spanish loanwords in the Nahuatl text
-            nah_words = set(_WORD_RE.findall(entry.nahuatl.lower()))
-            spanish_count = len(nah_words & _SPANISH_LOANWORDS)
-            spanish_penalty = max(0.05, 1.0 - (spanish_count * 0.4))
+            # Hard filter: skip entries with heavy Spanish contamination
+            sp_count = count_spanish(entry.nahuatl)
+            sp_rat = spanish_ratio(entry.nahuatl)
+            if sp_count >= 2 or sp_rat > 0.2:
+                continue  # Too contaminated — exclude entirely
+            # Light penalty for entries with 1 Spanish word (likely a loanword)
+            spanish_penalty = 0.2 if sp_count == 1 else 1.0
             scored.append((idx, raw_score * (0.5 + 0.5 * length_factor) * spanish_penalty))
 
         scored.sort(key=lambda x: x[1], reverse=True)
-        # Only return entries above a minimum relevance threshold.
-        # Low-scoring entries (weak keyword match + Spanish penalty) add
-        # noise and Spanish contamination without helping translation.
         min_score = 0.5
         return [self.entries[idx] for idx, s in scored[:max_results] if s >= min_score]
 
@@ -170,13 +161,20 @@ class ParallelCorpus:
         entries: List[ParallelEntry],
         src_lang: str = "en",
     ) -> str:
-        """Format matched entries as a reference block for prompt injection."""
+        """Format matched entries as a reference block for prompt injection.
+
+        Scrubs any remaining Spanish words from the Nahuatl side to prevent
+        the AI from copying them.
+        """
         if not entries:
             return ""
         lines = []
         for e in entries:
+            clean_nah = strip_spanish(e.nahuatl)
+            if not clean_nah.strip():
+                continue  # Entry was entirely Spanish — skip
             lines.append(f"- English: {e.english}")
-            lines.append(f"  Nahuatl: {e.nahuatl}")
+            lines.append(f"  Nahuatl: {clean_nah}")
         return "\n".join(lines)
 
 

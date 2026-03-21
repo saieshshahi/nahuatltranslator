@@ -89,7 +89,7 @@ class TestExpertGuidance:
 
     def test_no_spanish_mixing_rule(self):
         """Must warn against substituting Spanish words for Nahuatl equivalents."""
-        assert "NO SPANISH MIXING" in NAHUATL_EXPERT_GUIDANCE or "SPANISH" in NAHUATL_EXPERT_GUIDANCE
+        assert "PURITY" in NAHUATL_EXPERT_GUIDANCE
         assert "altepetl" in NAHUATL_EXPERT_GUIDANCE
         assert "tlatoani" in NAHUATL_EXPERT_GUIDANCE
         assert "teotl" in NAHUATL_EXPERT_GUIDANCE

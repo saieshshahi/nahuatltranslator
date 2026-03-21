@@ -403,4 +403,4 @@ class TestCrossModuleEdgeCases:
         assert "altepetl" in NAHUATL_EXPERT_GUIDANCE
         assert "tlatoani" in NAHUATL_EXPERT_GUIDANCE
         assert "teotl" in NAHUATL_EXPERT_GUIDANCE
-        assert "SPANISH" in NAHUATL_EXPERT_GUIDANCE
+        assert "PURITY" in NAHUATL_EXPERT_GUIDANCE

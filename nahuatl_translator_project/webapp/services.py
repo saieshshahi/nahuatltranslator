@@ -14,6 +14,8 @@ import json
 from dataclasses import dataclass
 from typing import Dict, Optional, Tuple, Any, List
 
+from webapp.spanish_filter import detect_spanish_in_output, strip_spanish
+
 
 LANG_LABELS = {
     "en": "English",
@@ -178,6 +180,63 @@ def _get_corpus_context(text: str, src: str) -> Tuple[str, str]:
     return ref_sentences, ref_vocab
 
 
+def _correct_spanish_contamination(client: Any, text: str, spanish_words: List[str]) -> str:
+    """Ask the AI to replace Spanish words with Nahuatl equivalents.
+
+    Called only when output validation detects significant Spanish contamination.
+    Uses gpt-4o-mini for speed and low cost.
+    """
+    correction_model = os.getenv("OPENAI_TRANSLATE_MODEL", "gpt-4o-mini")
+    try:
+        resp = client.responses.create(
+            model=correction_model,
+            temperature=0.1,
+            input=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a Nahuatl language editor. Your task is to replace "
+                        "Spanish words in the text with their Nahuatl equivalents. "
+                        "Output ONLY the corrected Nahuatl text, nothing else."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        f"This Nahuatl text contains Spanish words that must be replaced "
+                        f"with Nahuatl: {', '.join(spanish_words)}\n\n"
+                        f"Fix this text:\n{text}"
+                    ),
+                },
+            ],
+        )
+        corrected = (resp.output_text or "").strip()
+        return corrected if corrected else text
+    except Exception:
+        # If correction fails, return the stripped version
+        return strip_spanish(text)
+
+
+def _validate_and_clean_output(client: Any, text: str, tgt: str) -> str:
+    """Validate translation output for Spanish contamination and fix if needed.
+
+    Only applies when translating TO Nahuatl.
+    """
+    if tgt != "nah":
+        return text
+
+    spanish_found = detect_spanish_in_output(text)
+    if not spanish_found:
+        return text
+
+    if len(spanish_found) <= 2:
+        # Minor contamination: strip silently
+        return strip_spanish(text)
+    else:
+        # Significant contamination: AI self-correction pass
+        return _correct_spanish_contamination(client, text, spanish_found)
+
+
 def openai_translate(
     text: str,
     src: str,
@@ -221,7 +280,8 @@ def openai_translate(
             ],
             temperature=float(os.getenv("OPENAI_TRANSLATE_TEMPERATURE", "0.2")),
         )
-        return (resp.output_text or "").strip()
+        raw = (resp.output_text or "").strip()
+        return _validate_and_clean_output(client, raw, tgt)
     except Exception as e:
         # Caller can decide to fall back to local/offline.
         raise RuntimeError(f"OpenAI translation failed: {e}") from e
@@ -299,7 +359,13 @@ def openai_translate_variants(
     )
     raw = (resp.output_text or "").strip()
     variants = _parse_numbered_variants(raw, k)
-    return variants if variants else [""]
+    if not variants:
+        return [""]
+    # Validate each variant for Spanish contamination
+    cleaned = []
+    for v in variants:
+        cleaned.append(_validate_and_clean_output(client, v, tgt))
+    return cleaned
 
 
 def _image_to_data_url(image_path: str) -> str:

@@ -61,10 +61,10 @@ def mini_corpus_entries():
     corpus = ParallelCorpus()
     entries = [
         ParallelEntry(english="In the beginning God created the heaven and the earth.",
-                      nahuatl="Ipan tlahtocapehualiztli in Dios oquiyocox in ilhuicatl ihuan in tlalticpactli.",
+                      nahuatl="Ipan tlahtocapehualiztli in teotl oquiyocox in ilhuicatl ihuan in tlalticpactli.",
                       source="Genesis 1:1"),
         ParallelEntry(english="And God said, Let there be light.",
-                      nahuatl="Ihuan in Dios oquihtoh, Ma tlanextli.",
+                      nahuatl="Ihuan in teotl oquihtoh, Ma tlanextli.",
                       source="Genesis 1:3"),
         ParallelEntry(english="The Lord is my shepherd; I shall not want.",
                       nahuatl="In Totecuiyo nopixcauh; amo nitlapoloz.",

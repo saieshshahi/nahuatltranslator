@@ -15,6 +15,8 @@ import re
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Set, Tuple
 
+from webapp.spanish_filter import count_spanish, strip_spanish
+
 
 # ---------------------------------------------------------------------------
 # Data structures
@@ -260,6 +262,10 @@ class NahuatlDictionary:
             if not en_text or not nah_text:
                 continue
 
+            # Skip entries with Spanish contamination in the Nahuatl text
+            if count_spanish(nah_text) >= 2:
+                continue
+
             # Index English content words → Nahuatl sentence
             for tok in set(_content_tokens(en_text, "en")):
                 self._en_to_nah.setdefault(tok, []).append(DictEntry(
@@ -349,7 +355,11 @@ class NahuatlDictionary:
 
         lines = []
         for term, translation in matches:
-            lines.append(f'- "{term}" → "{translation}"')
+            # Scrub any remaining Spanish from translations
+            clean = strip_spanish(translation)
+            if not clean.strip():
+                continue
+            lines.append(f'- "{term}" → "{clean}"')
         return "\n".join(lines)
 
 
