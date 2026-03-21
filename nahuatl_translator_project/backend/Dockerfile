@@ -10,9 +10,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-COPY requirements.txt /app/requirements.txt
+COPY backend/requirements_backend.txt /app/requirements_backend.txt
 COPY backend/requirements_api.txt /app/requirements_api.txt
-RUN pip install --no-cache-dir -r /app/requirements.txt -r /app/requirements_api.txt
+RUN pip install --no-cache-dir -r /app/requirements_backend.txt -r /app/requirements_api.txt
 
 COPY . /app
 
