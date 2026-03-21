@@ -361,10 +361,15 @@ def openai_translate_variants(
     variants = _parse_numbered_variants(raw, k)
     if not variants:
         return [""]
-    # Validate each variant for Spanish contamination
+    # Only the first variant enforces pure Nahuatl (no Spanish).
+    # Remaining variants allow natural modern loanwords, reflecting
+    # how post-colonial and contemporary Nahuatl is actually spoken.
     cleaned = []
-    for v in variants:
-        cleaned.append(_validate_and_clean_output(client, v, tgt))
+    for i, v in enumerate(variants):
+        if i == 0:
+            cleaned.append(_validate_and_clean_output(client, v, tgt))
+        else:
+            cleaned.append(v)
     return cleaned
 
 
