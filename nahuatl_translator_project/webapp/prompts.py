@@ -187,13 +187,16 @@ def translation_user_prompt(
 
     if reference_vocab:
         parts.append(
-            f"SUPPLEMENTARY VOCABULARY (optional reference from corpus — use your own knowledge first):\n"
+            f"SUPPLEMENTARY VOCABULARY (optional reference — use your own knowledge first):\n"
             f"{reference_vocab}"
         )
 
     if reference_sentences:
         parts.append(
-            f"SUPPLEMENTARY PARALLEL EXAMPLES (from biblical corpus — adapt style to match the input):\n"
+            f"SUPPLEMENTARY PARALLEL EXAMPLES (from colonial-era biblical corpus):\n"
+            f"WARNING: These examples use colonial Nahuatl mixed with Spanish loanwords "
+            f"(Dios, país, iglesia, etc.). Do NOT copy the Spanish words — replace them "
+            f"with pure Nahuatl equivalents (teotl, altepetl, teocalli, etc.).\n"
             f"{reference_sentences}"
         )
 

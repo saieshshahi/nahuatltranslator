@@ -42,6 +42,17 @@ _STOP_WORDS: Set[str] = {
 
 _WORD_RE = re.compile(r"[a-záéíóúñü]+", re.IGNORECASE)
 
+# Common Spanish loanwords found in colonial Nahuatl that should NOT be
+# treated as real Nahuatl vocabulary. Used to penalize corpus entries
+# that are heavily contaminated with Spanish.
+_SPANISH_LOANWORDS: Set[str] = {
+    "dios", "país", "iglesia", "rey", "señor", "padre", "santo",
+    "espíritu", "cristo", "sacerdote", "nación", "pueblo", "gracia",
+    "gloria", "pecado", "cielo", "mundo", "pero", "porque", "para",
+    "como", "cuando", "donde", "más", "después", "también", "entonces",
+    "sobre", "contra", "entre", "desde", "hasta", "según", "sino",
+}
+
 
 def _tokenize(text: str) -> List[str]:
     """Extract lowercase alphabetic tokens, filtering stop words."""
@@ -133,7 +144,7 @@ class ParallelCorpus:
         if not scores:
             return []
 
-        # Normalize by entry length to prefer concise, relevant matches
+        # Normalize by entry length and penalize Spanish-contaminated entries
         scored = []
         for idx, raw_score in scores.items():
             entry = self.entries[idx]
@@ -141,10 +152,18 @@ class ParallelCorpus:
             word_count = max(1, len(text.split()))
             # Boost short-to-medium entries; penalize very long ones
             length_factor = min(1.0, 30.0 / word_count)
-            scored.append((idx, raw_score * (0.5 + 0.5 * length_factor)))
+            # Penalize entries with Spanish loanwords in the Nahuatl text
+            nah_words = set(_WORD_RE.findall(entry.nahuatl.lower()))
+            spanish_count = len(nah_words & _SPANISH_LOANWORDS)
+            spanish_penalty = max(0.05, 1.0 - (spanish_count * 0.4))
+            scored.append((idx, raw_score * (0.5 + 0.5 * length_factor) * spanish_penalty))
 
         scored.sort(key=lambda x: x[1], reverse=True)
-        return [self.entries[idx] for idx, _ in scored[:max_results]]
+        # Only return entries above a minimum relevance threshold.
+        # Low-scoring entries (weak keyword match + Spanish penalty) add
+        # noise and Spanish contamination without helping translation.
+        min_score = 0.5
+        return [self.entries[idx] for idx, s in scored[:max_results] if s >= min_score]
 
     def format_as_reference(
         self,
