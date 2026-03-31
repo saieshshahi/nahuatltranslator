@@ -8,12 +8,36 @@ import fitz  # PyMuPDF
 import pytesseract
 from PIL import Image
 
+# pdfplumber (built on pdfminer.six) handles Unicode CMap entries better
+# than PyMuPDF for fonts with non-standard encodings (macron vowels, etc.)
+try:
+    import pdfplumber
+    HAS_PDFPLUMBER = True
+except ImportError:
+    HAS_PDFPLUMBER = False
+
 
 @dataclass
 class OCRResult:
     text: str
     pages: int
     used_ocr: bool
+
+
+# Characters that indicate corrupted Unicode extraction from PDF fonts.
+# U+25A0 ■ (black square) — PyMuPDF's common replacement for unmapped glyphs.
+# U+FFFD � (replacement character) — standard Unicode replacement.
+# U+0000 — null bytes from broken CMap entries.
+_CORRUPTION_CHARS = frozenset("\u25a0\ufffd\u0000")
+
+
+def _has_corrupted_unicode(text: str) -> bool:
+    """Detect whether extracted PDF text contains replacement characters.
+
+    This happens when the PDF font lacks proper Unicode CMap entries for
+    certain glyphs (commonly macron vowels like ā, ō in Indigenous languages).
+    """
+    return bool(_CORRUPTION_CHARS.intersection(text))
 
 
 def _tesseract_langs(lang_hint: str) -> str:
@@ -56,25 +80,45 @@ def render_pdf_page_to_png(path: str, page_num: int = 1, dpi: int = 220) -> str:
 
 def _extract_pdf(path: str, lang_hint: str) -> OCRResult:
     doc = fitz.open(path)
+    num_pages = len(doc)
     pages_text: List[str] = []
 
-    # 1) Direct text
+    # --- Tier 1: PyMuPDF direct text (fastest) ---
     for page in doc:
         t = (page.get_text("text") or "").strip()
         pages_text.append(t)
 
     joined = "\n\n".join([t for t in pages_text if t])
-    if len(joined) >= 80:
-        return OCRResult(text=joined, pages=len(doc), used_ocr=False)
 
-    # 2) Render + OCR
+    # Accept if substantial and not corrupted
+    if len(joined) >= 80 and not _has_corrupted_unicode(joined):
+        return OCRResult(text=joined, pages=num_pages, used_ocr=False)
+
+    # --- Tier 2: pdfplumber (better Unicode CMap handling) ---
+    # pdfminer.six (which pdfplumber wraps) resolves font CMap entries more
+    # thoroughly than PyMuPDF, recovering macron vowels (ā, ō, ī) and other
+    # diacritics that PyMuPDF outputs as ■ or �.
+    if HAS_PDFPLUMBER:
+        try:
+            plumber_pages: List[str] = []
+            with pdfplumber.open(path) as pdf:
+                for pg in pdf.pages:
+                    t = (pg.extract_text() or "").strip()
+                    plumber_pages.append(t)
+            plumber_joined = "\n\n".join([t for t in plumber_pages if t])
+            if len(plumber_joined) >= 80 and not _has_corrupted_unicode(plumber_joined):
+                return OCRResult(text=plumber_joined, pages=num_pages, used_ocr=False)
+        except Exception:
+            pass  # pdfplumber failed — fall through to OCR
+
+    # --- Tier 3: Render + OCR (last resort) ---
     ocr_pages: List[str] = []
     langs = _tesseract_langs(lang_hint)
     for page in doc:
         pix = page.get_pixmap(dpi=220)
         img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
         ocr_pages.append(pytesseract.image_to_string(img, lang=langs))
-    return OCRResult(text="\n\n".join(ocr_pages).strip(), pages=len(doc), used_ocr=True)
+    return OCRResult(text="\n\n".join(ocr_pages).strip(), pages=num_pages, used_ocr=True)
 
 
 def _ocr_image(path: str, lang_hint: str) -> OCRResult:

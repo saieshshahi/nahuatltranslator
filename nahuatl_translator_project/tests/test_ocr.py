@@ -1,4 +1,4 @@
-"""Unit tests for webapp/ocr.py — image tiling and cleanup for manuscript transcription."""
+"""Unit tests for webapp/ocr.py — image tiling, cleanup, and Unicode handling."""
 
 import os
 import tempfile
@@ -14,7 +14,7 @@ except ImportError:
 
 try:
     # ocr.py imports fitz (PyMuPDF) at module level, so we must handle that
-    from webapp.ocr import tile_image, cleanup_tiles
+    from webapp.ocr import tile_image, cleanup_tiles, _has_corrupted_unicode
     HAS_OCR = True
 except ImportError:
     HAS_OCR = False
@@ -218,3 +218,135 @@ class TestCleanupTiles:
     def test_empty_list(self):
         """cleanup_tiles with empty list should not crash."""
         cleanup_tiles([], "/some/path.png")
+
+
+# ===================================================================
+# Unicode corruption detection tests
+# ===================================================================
+
+class TestUnicodeCorruptionDetection:
+    """Test _has_corrupted_unicode — catches replacement characters from PDF extraction."""
+
+    # --- Nahuatl words with macrons that must survive the pipeline ---
+    MACRON_WORDS = [
+        "Nāhuatl",
+        "tlatōlli",
+        "tlācameh",
+        "cempōhualli",
+        "nāhui",
+        "āltepētl",
+        "tēuctli",
+        "tlahtoāni",
+        "cīhuātl",
+        "ōmpa",
+    ]
+
+    def test_clean_text_not_flagged(self):
+        """Normal text without replacement chars should not be flagged."""
+        clean = "Nāhuatl tlatōlli huehueh tlatōlli. Ipan tlajco Mexihco."
+        assert not _has_corrupted_unicode(clean)
+
+    def test_plain_ascii_not_flagged(self):
+        """Plain ASCII text should not be flagged."""
+        assert not _has_corrupted_unicode("Hello world, simple text.")
+
+    def test_black_square_detected(self):
+        """U+25A0 ■ (black square) — PyMuPDF's common replacement — must be caught."""
+        corrupted = "N\u25a0huatl tlat\u25a0lli"
+        assert _has_corrupted_unicode(corrupted)
+
+    def test_replacement_char_detected(self):
+        """U+FFFD � (Unicode replacement character) must be caught."""
+        corrupted = "N\ufffdhuatl tlat\ufffdlli"
+        assert _has_corrupted_unicode(corrupted)
+
+    def test_null_byte_detected(self):
+        """U+0000 null bytes from broken CMap entries must be caught."""
+        corrupted = "N\x00huatl"
+        assert _has_corrupted_unicode(corrupted)
+
+    def test_macron_words_are_clean(self):
+        """All standard Nahuatl macron words must pass as clean (not corrupted)."""
+        for word in self.MACRON_WORDS:
+            assert not _has_corrupted_unicode(word), (
+                f"Macron word '{word}' was incorrectly flagged as corrupted"
+            )
+
+    def test_macron_sentence_is_clean(self):
+        """Full sentence with macrons must pass as clean."""
+        sentence = (
+            "Nāhuatl tlatōlli huehueh tlatōlli. "
+            "Ipan tlajco Mexihco miac tlācameh quipia in tlatōlli."
+        )
+        assert not _has_corrupted_unicode(sentence)
+
+    def test_mixed_corruption_detected(self):
+        """Text with some good chars and some replacement chars must be caught."""
+        mixed = "Nāhuatl is good but N\u25a0huatl is corrupted"
+        assert _has_corrupted_unicode(mixed)
+
+    def test_empty_string(self):
+        """Empty string should not be flagged."""
+        assert not _has_corrupted_unicode("")
+
+
+# ===================================================================
+# Macron character regression tests
+# ===================================================================
+
+class TestMacronPreservation:
+    """Regression tests: macron characters must never become ■, ?, �, or stripped ASCII."""
+
+    CORRUPTION_PATTERNS = ["\u25a0", "\ufffd", "?"]
+
+    EXPECTED_PAIRS = [
+        # (with macrons, stripped to ASCII = what corruption would look like)
+        ("Nāhuatl", "Nahuatl"),
+        ("tlatōlli", "tlatolli"),
+        ("tlācameh", "tlacameh"),
+        ("cempōhualli", "cempohualli"),
+        ("nāhui", "nahui"),
+    ]
+
+    def test_macron_chars_are_distinct_from_ascii(self):
+        """Verify macron vowels are NOT the same as plain ASCII vowels."""
+        assert "ā" != "a"
+        assert "ō" != "o"
+        assert "ī" != "i"
+        assert "ē" != "e"
+        assert "ū" != "u"
+
+    def test_macron_chars_survive_utf8_roundtrip(self):
+        """Macron characters must survive UTF-8 encode/decode."""
+        for macron_word, _ in self.EXPECTED_PAIRS:
+            encoded = macron_word.encode("utf-8")
+            decoded = encoded.decode("utf-8")
+            assert decoded == macron_word, (
+                f"UTF-8 roundtrip failed for '{macron_word}': got '{decoded}'"
+            )
+
+    def test_macron_chars_survive_json_roundtrip(self):
+        """Macron characters must survive JSON serialization."""
+        import json
+        for macron_word, _ in self.EXPECTED_PAIRS:
+            j = json.dumps({"text": macron_word}, ensure_ascii=False)
+            restored = json.loads(j)["text"]
+            assert restored == macron_word, (
+                f"JSON roundtrip failed for '{macron_word}': got '{restored}'"
+            )
+
+    def test_no_corruption_chars_in_macron_words(self):
+        """Macron words must not contain any known corruption characters."""
+        for macron_word, _ in self.EXPECTED_PAIRS:
+            for bad in self.CORRUPTION_PATTERNS:
+                assert bad not in macron_word, (
+                    f"'{macron_word}' contains corruption char '{bad}'"
+                )
+
+    def test_corruption_detection_catches_replaced_macrons(self):
+        """Simulated macron→■ corruption must be detected."""
+        # Simulate what a bad PDF extraction does: replace ā→■, ō→■
+        original = "Nāhuatl tlatōlli tlācameh cempōhualli nāhui"
+        corrupted = original.replace("ā", "\u25a0").replace("ō", "\u25a0")
+        assert _has_corrupted_unicode(corrupted)
+        assert not _has_corrupted_unicode(original)
