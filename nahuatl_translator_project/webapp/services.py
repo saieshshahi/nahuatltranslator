@@ -28,6 +28,15 @@ def _label(code: str) -> str:
     return LANG_LABELS.get(code, code)
 
 
+def _supports_temperature(model: str) -> bool:
+    """Check if a model supports the temperature parameter."""
+    # GPT-5 and reasoning models (o-series) don't support temperature
+    m = model.lower()
+    if m.startswith("gpt-5") or m.startswith("o1") or m.startswith("o3") or m.startswith("o4"):
+        return False
+    return True
+
+
 def build_prompt(src_code: str, tgt_code: str, text: str, variety: str) -> str:
     # Keep the original prompt style used in the training script.
     return f"translate {_label(src_code)} to {_label(tgt_code)} [{variety}]: {text.strip()}"
@@ -201,9 +210,8 @@ def _validate_translation(client: Any, source: str, translation: str, src: str, 
 
     validation_model = os.getenv("OPENAI_TRANSLATE_MODEL", "gpt-5")
     try:
-        resp = client.responses.create(
+        val_kwargs = dict(
             model=validation_model,
-            temperature=0.0,
             input=[
                 {
                     "role": "system",
@@ -225,6 +233,9 @@ def _validate_translation(client: Any, source: str, translation: str, src: str, 
                 },
             ],
         )
+        if _supports_temperature(validation_model):
+            val_kwargs["temperature"] = 0.0
+        resp = client.responses.create(**val_kwargs)
         corrected = (resp.output_text or "").strip()
         return corrected if corrected else translation
     except Exception:
@@ -269,14 +280,16 @@ def openai_translate(
     )
 
     try:
-        resp = client.responses.create(
+        kwargs = dict(
             model=model,
             input=[
                 {"role": "system", "content": system},
                 {"role": "user", "content": user},
             ],
-            temperature=float(os.getenv("OPENAI_TRANSLATE_TEMPERATURE", "0.2")),
         )
+        if _supports_temperature(model):
+            kwargs["temperature"] = float(os.getenv("OPENAI_TRANSLATE_TEMPERATURE", "0.2"))
+        resp = client.responses.create(**kwargs)
         raw = (resp.output_text or "").strip()
         return _validate_translation(client, text, raw, src, tgt)
     except Exception as e:
@@ -346,14 +359,16 @@ def openai_translate_variants(
         reference_sentences=ref_sentences,
     )
 
-    resp = client.responses.create(
+    kwargs = dict(
         model=model,
-        temperature=temperature,
         input=[
             {"role": "system", "content": system},
             {"role": "user", "content": user},
         ],
     )
+    if _supports_temperature(model):
+        kwargs["temperature"] = temperature
+    resp = client.responses.create(**kwargs)
     raw = (resp.output_text or "").strip()
     variants = _parse_numbered_variants(raw, k)
     if not variants:
@@ -393,9 +408,8 @@ def _transcribe_single_image(
 ) -> str:
     """Send a single image to OpenAI vision and get transcription text back."""
     data_url = _image_to_data_url(image_path)
-    resp = client.responses.create(
+    kwargs = dict(
         model=model,
-        temperature=float(temperature),
         input=[
             {"role": "system", "content": system_prompt},
             {
@@ -407,6 +421,9 @@ def _transcribe_single_image(
             },
         ],
     )
+    if _supports_temperature(model):
+        kwargs["temperature"] = float(temperature)
+    resp = client.responses.create(**kwargs)
     return (resp.output_text or "").strip()
 
 
@@ -505,14 +522,16 @@ def openai_transcribe_image(
         )
         stitch_user = f"Merge these transcription segments:\n\n{segments}"
 
-        resp = client.responses.create(
+        stitch_kwargs = dict(
             model=model,
-            temperature=0.0,
             input=[
                 {"role": "system", "content": stitch_system},
                 {"role": "user", "content": stitch_user},
             ],
         )
+        if _supports_temperature(model):
+            stitch_kwargs["temperature"] = 0.0
+        resp = client.responses.create(**stitch_kwargs)
         return (resp.output_text or "").strip()
 
     finally:
@@ -552,9 +571,8 @@ def openai_handwriting_profile(
     )
     user = "Describe handwriting characteristics visible in this image for later comparison." 
 
-    resp = client.responses.create(
+    hw_kwargs = dict(
         model=model,
-        temperature=0.2,
         input=[
             {"role": "system", "content": system},
             {
@@ -566,6 +584,9 @@ def openai_handwriting_profile(
             },
         ],
     )
+    if _supports_temperature(model):
+        hw_kwargs["temperature"] = 0.2
+    resp = client.responses.create(**hw_kwargs)
     return (resp.output_text or "").strip()
 
 
