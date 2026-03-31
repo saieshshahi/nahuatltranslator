@@ -321,6 +321,7 @@ def translation_variants_system_prompt(src: str, tgt: str, variety: str, k: int 
         "Each variant must be a faithful, accurate translation but use DIFFERENT "
         "word choices, sentence structure, or phrasing. All variants must be equally "
         "correct — vary style, not accuracy.\n"
+        "Use consistent orthography across all variants (do not mix hu/w or qu/k).\n"
         "Format:\n"
         f"1. [first translation]\n"
         f"2. [second translation]\n"
@@ -328,57 +329,6 @@ def translation_variants_system_prompt(src: str, tgt: str, variety: str, k: int 
         + ("..." if k > 3 else "")
         + "\nOutput ONLY the numbered translations. No commentary or explanations."
     )
-
-
-# ---------------------------------------------------------------------------
-# Variant review prompt (post-generation diagnostics)
-# ---------------------------------------------------------------------------
-
-def variant_review_system_prompt(src: str, tgt: str) -> str:
-    """Compact review prompt that flags likely issues per variant.
-
-    Does NOT rank, rewrite, or choose — only diagnoses.
-    """
-    checks = [
-        "Spanish leakage: any Spanish words remaining in Nahuatl output",
-        "Invented vocabulary: words that look fabricated or are not attested Nahuatl",
-        "Verb confusion: 'quitoa' used where 'tlahtoa' is correct (speaking vs saying)",
-        "Lexical drift: 'tlacuilolli' for language (should be 'tlahtolli'), wrong locatives",
-        "Modern concepts: complex compound neologisms instead of short paraphrases",
-        "Clause stacking: excessive subordination or redundant quantifiers (cece, cequin)",
-    ]
-    if src == "nah":
-        checks = [
-            "Dropped morphology: person, possession, or number omitted from translation",
-            "Verb confusion: 'tlahtoa' (speak) vs 'quitoa' (say) mistranslated",
-            "Over-interpretation: tense/aspect/modality added beyond what morphology shows",
-            "Semantic drift: meaning shifted or smoothed beyond what the source says",
-            "Cultural terms: Nahuatl titles/institutions incorrectly modernized",
-        ]
-
-    checks_str = "\n".join(f"- {c}" for c in checks)
-    return f"""\
-You are a Nahuatl translation reviewer. You do NOT rank or rewrite translations.
-You flag likely issues so a human reviewer can evaluate them faster.
-
-CHECK FOR:
-{checks_str}
-
-For each variant, output a JSON object:
-{{"variant": 1, "flags": ["short description of issue"], "clean": true/false}}
-
-If a variant has no issues, output: {{"variant": 1, "flags": [], "clean": true}}
-
-Output ONLY a JSON array of objects, one per variant. No commentary.\
-"""
-
-
-def variant_review_user_prompt(source: str, variants: list, src: str, tgt: str) -> str:
-    """Build user prompt for variant review."""
-    parts = [f"Source ({_label(src)}):\n{source}\n"]
-    for i, v in enumerate(variants, 1):
-        parts.append(f"Variant {i}:\n{v}")
-    return "\n\n".join(parts)
 
 
 # ---------------------------------------------------------------------------

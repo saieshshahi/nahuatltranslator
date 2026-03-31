@@ -189,69 +189,17 @@ def _get_corpus_context(text: str, src: str) -> Tuple[str, str]:
     return ref_sentences, ref_vocab
 
 
-def _validate_translation(client: Any, source: str, translation: str, src: str, tgt: str) -> str:
-    """Validation pass: check translation for hallucination, Spanish leakage, and errors.
+def _strip_spanish_leakage(translation: str, tgt: str) -> str:
+    """Quick local Spanish cleanup — no API call, just regex stripping.
 
-    Uses a second model call to review the translation and correct issues.
     Only fires when translating TO Nahuatl.
     """
     if tgt != "nah":
         return translation
-
-    # Quick Spanish check — strip minor contamination without an API call
     spanish_found = detect_spanish_in_output(translation)
     if spanish_found and len(spanish_found) <= 2:
-        translation = strip_spanish(translation)
-        spanish_found = detect_spanish_in_output(translation)
-
-    # If clean and short input, skip the validation call to save cost
-    if not spanish_found and len(source.split()) <= 5:
-        return translation
-
-    validation_model = os.getenv("OPENAI_TRANSLATE_MODEL", "gpt-5")
-    try:
-        val_kwargs = dict(
-            model=validation_model,
-            input=[
-                {
-                    "role": "system",
-                    "content": (
-                        "You are reviewing a Nahuatl translation for accuracy. "
-                        "Check for: invented/hallucinated words, Spanish leakage, "
-                        "incorrect meanings, grammar problems. Be strict.\n\n"
-                        "LEXICAL RULES:\n"
-                        '- "tlahtolli" = language/speech. "tlahtoa" = to speak. '
-                        'Use "quitoa" only for "to say/tell." '
-                        'Reserve "tlacuilolli" strictly for writing/script.\n'
-                        "- Regions/dialects → established forms like \"ipan occequin altepeh.\" "
-                        "Never guess locatives.\n"
-                        "- Large populations → \"huel miac tlacah\", not exact modern numbers.\n"
-                        "- Modern concepts → short descriptive paraphrases, no complex compounds or neologisms.\n"
-                        "- Long text → avoid redundant quantifiers (repeated cece/cequin) and excessive clause stacking.\n\n"
-                        "If the translation is acceptable, output it exactly as-is.\n"
-                        "If there are problems, output ONLY the corrected Nahuatl translation. "
-                        "No commentary, no explanations, no notes — just the corrected text."
-                    ),
-                },
-                {
-                    "role": "user",
-                    "content": (
-                        f"Source ({_label(src)}):\n{source}\n\n"
-                        f"Translation (Nahuatl):\n{translation}"
-                    ),
-                },
-            ],
-        )
-        if _supports_temperature(validation_model):
-            val_kwargs["temperature"] = 0.0
-        resp = client.responses.create(**val_kwargs)
-        corrected = (resp.output_text or "").strip()
-        return corrected if corrected else translation
-    except Exception:
-        # If validation fails, return what we have
-        if spanish_found:
-            return strip_spanish(translation)
-        return translation
+        return strip_spanish(translation)
+    return translation
 
 
 def openai_translate(
@@ -300,7 +248,7 @@ def openai_translate(
             kwargs["temperature"] = float(os.getenv("OPENAI_TRANSLATE_TEMPERATURE", "0.2"))
         resp = client.responses.create(**kwargs)
         raw = (resp.output_text or "").strip()
-        return _validate_translation(client, text, raw, src, tgt)
+        return _strip_spanish_leakage(raw, tgt)
     except Exception as e:
         # Caller can decide to fall back to local/offline.
         raise RuntimeError(f"OpenAI translation failed: {e}") from e
@@ -382,62 +330,9 @@ def openai_translate_variants(
     variants = _parse_numbered_variants(raw, k)
     if not variants:
         return [""]
-    # Only the first variant enforces pure Nahuatl (no Spanish).
-    # Remaining variants allow natural modern loanwords, reflecting
-    # how post-colonial and contemporary Nahuatl is actually spoken.
-    cleaned = []
-    for i, v in enumerate(variants):
-        if i == 0:
-            cleaned.append(_validate_translation(client, text, v, src, tgt))
-        else:
-            cleaned.append(v)
-    return cleaned
+    # Quick local Spanish strip on all variants (no API call)
+    return [_strip_spanish_leakage(v, tgt) for v in variants]
 
-
-def review_variants(
-    text: str,
-    variants: List[str],
-    src: str,
-    tgt: str,
-    model: Optional[str] = None,
-) -> List[dict]:
-    """Post-generation review: flag likely issues per variant without ranking or rewriting.
-
-    Returns a list of {"variant": int, "flags": [...], "clean": bool} dicts.
-    """
-    from openai import OpenAI
-    from webapp.prompts import variant_review_system_prompt, variant_review_user_prompt
-
-    if not variants or not openai_available():
-        return []
-
-    model = model or os.getenv("OPENAI_TRANSLATE_MODEL", "gpt-5")
-    client = OpenAI()
-
-    system = variant_review_system_prompt(src, tgt)
-    user = variant_review_user_prompt(text, variants, src, tgt)
-
-    try:
-        kwargs = dict(
-            model=model,
-            input=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
-        )
-        if _supports_temperature(model):
-            kwargs["temperature"] = 0.0
-        resp = client.responses.create(**kwargs)
-        raw = (resp.output_text or "").strip()
-        # Strip markdown code fences if present
-        if raw.startswith("```"):
-            raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
-        parsed = json.loads(raw)
-        if isinstance(parsed, list):
-            return parsed
-        return []
-    except Exception:
-        return []
 
 
 def _image_to_data_url(image_path: str) -> str:
