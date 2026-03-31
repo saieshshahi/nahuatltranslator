@@ -32,15 +32,23 @@ def _label(code: str) -> str:
 NAHUATL_EXPERT_GUIDANCE = """\
 You are an expert translator specializing in Nahuatl.
 
-Rules:
-- Do NOT invent words, grammar, or idioms. Only use vocabulary you are confident is real Nahuatl.
-- If you are uncertain about a word, use a descriptive paraphrase in Nahuatl instead.
-- Prefer conservative, literal translations over fluent speculative ones.
-- Preserve proper nouns exactly unless there is a well-established Nahuatl form.
-- Do NOT mix Spanish words into Nahuatl output. If a concept has no reliable Nahuatl \
-equivalent, use a descriptive paraphrase.
-- Possessive prefixes attach directly to the noun stem (e.g., notoca, nocal — one word, no spaces).
-- Nahuatl has no articles — do not insert "the" or "a" equivalents.
+HARD RULES — never violate these:
+1. Do NOT invent words, grammar, or idioms. Use only vocabulary you are confident exists in Nahuatl.
+2. If unsure about any word, use a descriptive paraphrase in Nahuatl — never guess.
+3. Do NOT insert Spanish words into Nahuatl output. If a concept has no known Nahuatl \
+word, paraphrase it descriptively in Nahuatl.
+4. Preserve proper nouns exactly unless a well-established Nahuatl form exists.
+5. Prefer conservative, literal translations over fluent speculative ones.
+
+LEXICAL PRECISION:
+- "tlahtolli" = language, speech, word(s). Use this when the source means language or speech.
+- Do NOT use writing-related terms (e.g., tlacuilolli) unless the source explicitly means writing.
+- Modern/technical concepts (computer, internet, democracy, etc.): paraphrase descriptively. \
+Do NOT coin neologisms or calque from Spanish.
+
+GRAMMAR REMINDERS:
+- Possessive prefixes attach directly: notoca, nocal, itlahtozin (one word, no spaces).
+- Nahuatl has no articles — never insert "the" or "a" equivalents.
 - Default to classical orthography (hu, qu, tz, tl) unless the user specifies modern.\
 """
 
@@ -85,6 +93,25 @@ FEWSHOT_TRANSLATION_EXAMPLES = [
      "Cualli tlaneci. ¿Quen tica?"),
 ]
 
+# ---------------------------------------------------------------------------
+# Negative examples — teach the model what NOT to do (only for →Nahuatl)
+# Each tuple: (src, tgt, source_text, wrong_output, correct_output, error_type)
+# ---------------------------------------------------------------------------
+NEGATIVE_TRANSLATION_EXAMPLES = [
+    ("en", "nah", "The computer is fast.",
+     "Computadora huel ichicahuac.",
+     "In tepoz tlatequipanoliztli huel ichicahuac.",
+     "invented word — 'computadora' is Spanish, not Nahuatl"),
+    ("en", "nah", "She speaks the Nahuatl language.",
+     "Tlacuilolli nahuatl quitoa.",
+     "Nahuatlahtolli quitoa.",
+     "wrong word — 'tlacuilolli' means writing, not language; use 'tlahtolli'"),
+    ("en", "nah", "I need to go to the hospital.",
+     "Nicnequi niaz hospital-pan.",
+     "Nicnequi niaz in calli campa tepatiloya.",
+     "Spanish leakage — 'hospital' must be paraphrased, not borrowed"),
+]
+
 
 def _format_fewshot(src: str, tgt: str) -> str:
     """Select and format few-shot examples relevant to the language direction."""
@@ -99,6 +126,20 @@ def _format_fewshot(src: str, tgt: str) -> str:
         # Fallback: show any Nahuatl example for general guidance
         for ex_src, ex_tgt, inp, out in FEWSHOT_TRANSLATION_EXAMPLES[:2]:
             relevant.append(f"  {_label(ex_src)}: {inp}\n  {_label(ex_tgt)}: {out}")
+
+    # Add negative examples when translating TO Nahuatl
+    if tgt == "nah":
+        neg_parts = []
+        for ex_src, ex_tgt, source, wrong, correct, reason in NEGATIVE_TRANSLATION_EXAMPLES:
+            if ex_src == src:
+                neg_parts.append(
+                    f"  {_label(src)}: {source}\n"
+                    f"  ✗ {wrong}  ← {reason}\n"
+                    f"  ✓ {correct}"
+                )
+        if neg_parts:
+            relevant.append("\nCOMMON MISTAKES TO AVOID:\n" + "\n\n".join(neg_parts))
+
     return "\n\n".join(relevant)
 
 
@@ -122,7 +163,7 @@ def translation_system_prompt(src: str, tgt: str, variety: str) -> str:
 
 DIRECTION: {_label(src)} → {_label(tgt)}
 
-EXAMPLES:
+EXAMPLES (for style and vocabulary reference — do not copy blindly):
 {fewshot}
 
 Output ONLY the translation in {_label(tgt)}. No commentary, notes, or explanations.\
@@ -142,7 +183,7 @@ def translation_user_prompt(
 
     if reference_vocab:
         parts.append(
-            f"SUPPLEMENTARY VOCABULARY (optional reference — use your own knowledge first):\n"
+            f"SUPPLEMENTARY VOCABULARY (use only if you recognize the terms as real Nahuatl):\n"
             f"{reference_vocab}"
         )
 
