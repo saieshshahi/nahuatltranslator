@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { postJSON, postForm, API_BASE } from "./api";
+import MetricsTab from "./MetricsTab";
 
 const VARIETIES = ["Unknown", "Central", "Huasteca", "Pipil", "Other"];
 
@@ -344,6 +345,7 @@ export default function App() {
       { id: "translate", label: "Translate", comp: <TranslateTab /> },
       { id: "transcribe", label: "Transcribe", comp: <TranscribeTab /> },
       { id: "extract", label: "Extract", comp: <ExtractTab /> },
+      { id: "metrics", label: "Metrics", comp: <MetricsTab /> },
     ],
     []
   );

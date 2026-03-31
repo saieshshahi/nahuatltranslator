@@ -46,3 +46,7 @@ export async function postForm(path, form) {
     body: form,
   });
 }
+
+export async function getJSON(path) {
+  return await requestWithWakeRetry(path, { method: "GET" });
+}

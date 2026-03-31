@@ -114,6 +114,8 @@ def main():
 
     accelerator.print(f"GPU available: {torch.cuda.is_available()} | training steps: {num_training_steps}")
 
+    training_log = []
+
     for epoch in range(args.epochs):
         model.train()
         total = 0.0
@@ -125,7 +127,10 @@ def main():
             lr_scheduler.step()
             optimizer.zero_grad()
             total += loss.item()
-        accelerator.print(f"Epoch {epoch+1}/{args.epochs} loss: {total/max(1,len(train_loader)):.4f}")
+
+        train_loss = total / max(1, len(train_loader))
+        current_lr = lr_scheduler.get_last_lr()[0] if hasattr(lr_scheduler, 'get_last_lr') else args.lr
+        accelerator.print(f"Epoch {epoch+1}/{args.epochs} loss: {train_loss:.4f}")
 
         # quick validation loss
         model.eval()
@@ -133,7 +138,27 @@ def main():
         with torch.no_grad():
             for vb in val_loader:
                 vtotal += model(**vb).loss.item()
-        accelerator.print(f"Epoch {epoch+1} val_loss: {vtotal/max(1,len(val_loader)):.4f}")
+
+        val_loss = vtotal / max(1, len(val_loader))
+        accelerator.print(f"Epoch {epoch+1} val_loss: {val_loss:.4f}")
+
+        # Log epoch metrics
+        epoch_log = {
+            "epoch": epoch + 1,
+            "train_loss": round(train_loss, 6),
+            "val_loss": round(val_loss, 6),
+            "learning_rate": current_lr,
+        }
+
+        # Detect overfitting
+        if len(training_log) >= 2:
+            prev_val = training_log[-1]["val_loss"]
+            prev_prev_val = training_log[-2]["val_loss"]
+            if val_loss > prev_val and prev_val > prev_prev_val:
+                epoch_log["overfitting_warning"] = True
+                accelerator.print(f"  WARNING: val_loss increasing for 2+ epochs — possible overfitting")
+
+        training_log.append(epoch_log)
 
     # Save
     out_dir = Path(args.out_dir)
@@ -145,6 +170,8 @@ def main():
         unwrapped.save_pretrained(out_dir, safe_serialization=True)
         tok.save_pretrained(out_dir)
         (out_dir / "training_args.json").write_text(json.dumps(vars(args), indent=2), encoding="utf-8")
+        (out_dir / "training_log.json").write_text(json.dumps(training_log, indent=2), encoding="utf-8")
+        accelerator.print(f"Training log saved to {out_dir / 'training_log.json'}")
 
     accelerator.print(f"Saved to {out_dir}")
 

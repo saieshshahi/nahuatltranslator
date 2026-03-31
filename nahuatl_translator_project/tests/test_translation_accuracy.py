@@ -13,110 +13,13 @@ the corpus providing only optional supplementary vocabulary.
 import json
 import os
 import re
-from collections import Counter
 from pathlib import Path
 from typing import List
 
 import pytest
 
 from tests.conftest import skip_no_openai, skip_no_corpus
-
-
-# ===================================================================
-# Lightweight BLEU/chrF implementations (no nltk dependency)
-# ===================================================================
-
-def _ngrams(tokens: List[str], n: int) -> List[tuple]:
-    return [tuple(tokens[i:i + n]) for i in range(len(tokens) - n + 1)]
-
-
-def compute_bleu(reference: str, hypothesis: str, max_n: int = 4) -> float:
-    """Compute simplified BLEU score (sentence-level, smoothed)."""
-    import math
-
-    ref_tokens = reference.lower().split()
-    hyp_tokens = hypothesis.lower().split()
-
-    if len(hyp_tokens) == 0:
-        return 0.0
-
-    effective_n = min(max_n, len(ref_tokens), len(hyp_tokens))
-    if effective_n == 0:
-        return 0.0
-
-    precisions = []
-    for n in range(1, effective_n + 1):
-        ref_ngrams = Counter(_ngrams(ref_tokens, n))
-        hyp_ngrams = Counter(_ngrams(hyp_tokens, n))
-
-        if not hyp_ngrams:
-            precisions.append(0.0)
-            continue
-
-        clipped = sum(min(count, ref_ngrams[ng]) for ng, count in hyp_ngrams.items())
-        total = sum(hyp_ngrams.values())
-        precisions.append((clipped + 1) / (total + 1))
-
-    if not precisions or all(p == 0 for p in precisions):
-        return 0.0
-
-    log_avg = sum(math.log(max(p, 1e-10)) for p in precisions) / len(precisions)
-
-    bp = 1.0
-    if len(hyp_tokens) < len(ref_tokens):
-        bp = math.exp(1 - len(ref_tokens) / max(len(hyp_tokens), 1))
-
-    return bp * math.exp(log_avg)
-
-
-def compute_chrf(reference: str, hypothesis: str, n: int = 6, beta: float = 2.0) -> float:
-    """Compute chrF score (character n-gram F-score)."""
-    def _char_ngrams(text: str, order: int) -> Counter:
-        text = text.strip()
-        grams = Counter()
-        for i in range(len(text) - order + 1):
-            grams[text[i:i + order]] += 1
-        return grams
-
-    ref = reference.lower()
-    hyp = hypothesis.lower()
-
-    if not hyp or not ref:
-        return 0.0
-
-    precisions = []
-    recalls = []
-
-    for order in range(1, n + 1):
-        ref_ngrams = _char_ngrams(ref, order)
-        hyp_ngrams = _char_ngrams(hyp, order)
-
-        common = sum((ref_ngrams & hyp_ngrams).values())
-        total_hyp = sum(hyp_ngrams.values())
-        total_ref = sum(ref_ngrams.values())
-
-        p = common / total_hyp if total_hyp > 0 else 0.0
-        r = common / total_ref if total_ref > 0 else 0.0
-        precisions.append(p)
-        recalls.append(r)
-
-    avg_p = sum(precisions) / len(precisions) if precisions else 0.0
-    avg_r = sum(recalls) / len(recalls) if recalls else 0.0
-
-    if avg_p + avg_r == 0:
-        return 0.0
-
-    beta_sq = beta ** 2
-    return (1 + beta_sq) * avg_p * avg_r / (beta_sq * avg_p + avg_r)
-
-
-def normalize_nahuatl(text: str) -> str:
-    """Normalize Nahuatl text for comparison."""
-    t = text.lower().strip()
-    t = re.sub(r'[¿¡?.!,;:\'"()]', '', t)
-    t = t.replace("hua", "wa").replace("hu", "w")
-    t = re.sub(r'qu(?=[ei])', 'k', t)
-    return t.strip()
+from webapp.evaluation import compute_bleu, compute_chrf, normalize_nahuatl
 
 
 # ===================================================================

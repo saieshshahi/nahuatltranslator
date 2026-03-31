@@ -184,9 +184,9 @@ def _correct_spanish_contamination(client: Any, text: str, spanish_words: List[s
     """Ask the AI to replace Spanish words with Nahuatl equivalents.
 
     Called only when output validation detects significant Spanish contamination.
-    Uses gpt-4o-mini for speed and low cost.
+    Uses gpt-5 for quality.
     """
-    correction_model = os.getenv("OPENAI_TRANSLATE_MODEL", "gpt-4o-mini")
+    correction_model = os.getenv("OPENAI_TRANSLATE_MODEL", "gpt-5")
     try:
         resp = client.responses.create(
             model=correction_model,
@@ -255,7 +255,7 @@ def openai_translate(
     from openai import OpenAI
     from webapp.prompts import translation_system_prompt, translation_user_prompt
 
-    model = model or os.getenv("OPENAI_TRANSLATE_MODEL", "gpt-4o-mini")
+    model = model or os.getenv("OPENAI_TRANSLATE_MODEL", "gpt-5")
     client = OpenAI()
 
     system = translation_system_prompt(src, tgt, variety)
@@ -331,7 +331,7 @@ def openai_translate_variants(
     if not openai_available():
         raise RuntimeError("OPENAI_API_KEY is not set")
 
-    model = model or os.getenv("OPENAI_TRANSLATE_MODEL", "gpt-4o-mini")
+    model = model or os.getenv("OPENAI_TRANSLATE_MODEL", "gpt-5")
     client = OpenAI()
     k = max(1, int(k))
     temperature = float(temperature)
@@ -588,7 +588,7 @@ def openai_extract(
     from webapp.entities import format_entity_reference, DISAMBIGUATION_RULES
     from webapp.prompts import extraction_system_prompt, extraction_user_prompt
 
-    model = model or os.getenv("OPENAI_EXTRACT_MODEL", "gpt-4o-mini")
+    model = model or os.getenv("OPENAI_EXTRACT_MODEL", "gpt-5")
     client = OpenAI()
 
     entity_ref = format_entity_reference(max_per_type=8)

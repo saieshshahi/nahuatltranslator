@@ -10,6 +10,12 @@ from pydantic import BaseModel, Field
 
 from webapp import services
 from webapp.ocr import extract_text, render_pdf_page_to_png
+from webapp.evaluation import (
+    evaluate_golden_pairs,
+    compute_corpus_stats,
+    load_eval_history,
+    save_eval_result,
+)
 
 
 APP_NAME = "Nahuatl Translator & Manuscript Transcriber API"
@@ -170,3 +176,90 @@ def transcribe(
                     os.unlink(p)
                 except Exception:
                     pass
+
+
+# ===================================================================
+# Evaluation endpoints
+# ===================================================================
+
+import json as _json
+from dataclasses import asdict as _asdict
+from pathlib import Path as _Path
+
+_GOLDEN_PATH = _Path(__file__).resolve().parent.parent / "tests" / "golden_translations.json"
+
+# Simple in-memory cache for evaluation results
+_eval_cache: dict = {"result": None, "timestamp": 0.0}
+_CACHE_TTL = 3600  # 1 hour
+
+
+class EvalRequest(BaseModel):
+    directions: List[str] = Field(default_factory=list)
+    categories: List[str] = Field(default_factory=list)
+    max_pairs: int = Field(79, ge=1, le=200)
+
+
+@app.post("/evaluate")
+def evaluate(req: EvalRequest):
+    """Run golden-pair evaluation and return full metrics."""
+    import time as _time
+
+    if not services.openai_available():
+        return {"error": "OPENAI_API_KEY not set"}
+
+    # Check cache
+    now = _time.time()
+    cache_key = f"{req.directions}:{req.categories}:{req.max_pairs}"
+    if (
+        _eval_cache["result"] is not None
+        and now - _eval_cache["timestamp"] < _CACHE_TTL
+        and _eval_cache.get("key") == cache_key
+    ):
+        return {"cached": True, **_eval_cache["result"]}
+
+    # Load golden pairs
+    try:
+        with open(_GOLDEN_PATH, "r", encoding="utf-8") as f:
+            golden_data = _json.load(f)
+        golden_pairs = golden_data["pairs"]
+    except Exception as e:
+        return {"error": f"Failed to load golden translations: {e}"}
+
+    model = os.getenv("OPENAI_TRANSLATE_MODEL", "gpt-5")
+
+    result = evaluate_golden_pairs(
+        translate_fn=services.openai_translate,
+        golden_pairs=golden_pairs,
+        directions=req.directions or None,
+        categories=req.categories or None,
+        max_pairs=req.max_pairs,
+        model=model,
+    )
+
+    result_dict = result.to_dict()
+
+    # Save to disk
+    try:
+        save_eval_result(result)
+    except Exception:
+        pass
+
+    # Update cache
+    _eval_cache["result"] = result_dict
+    _eval_cache["timestamp"] = now
+    _eval_cache["key"] = cache_key
+
+    return {"cached": False, **result_dict}
+
+
+@app.get("/evaluate/history")
+def evaluate_history():
+    """Return summaries of all saved evaluation runs."""
+    return load_eval_history()
+
+
+@app.get("/corpus/stats")
+def corpus_stats():
+    """Return corpus statistics (no API calls needed)."""
+    stats = compute_corpus_stats()
+    return _asdict(stats)
