@@ -1,8 +1,6 @@
 # Backend-only dependencies (no torch/transformers/gradio — those are for local training only)
 
 # Data loading (for corpus/dictionary)
-numpy>=2.0,<2.3
-pandas>=2.2
 openpyxl>=3.1
 
 # Document parsing / OCR

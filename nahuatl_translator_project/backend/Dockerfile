@@ -12,7 +12,7 @@ WORKDIR /app
 
 COPY backend/requirements_backend.txt /app/requirements_backend.txt
 COPY backend/requirements_api.txt /app/requirements_api.txt
-RUN pip install --no-cache-dir -r /app/requirements_backend.txt -r /app/requirements_api.txt
+RUN pip install --no-cache-dir --prefer-binary -r /app/requirements_backend.txt -r /app/requirements_api.txt
 
 COPY . /app
 
