@@ -220,10 +220,14 @@ def _validate_translation(client: Any, source: str, translation: str, src: str, 
                         "Check for: invented/hallucinated words, Spanish leakage, "
                         "incorrect meanings, grammar problems. Be strict.\n\n"
                         "LEXICAL RULES:\n"
-                        '- "tlahtolli" = language/speech. Reserve "tlacuilolli" strictly for writing/script.\n'
-                        "- Dialect/variation → paraphrase descriptively, never borrow Spanish terms.\n"
+                        '- "tlahtolli" = language/speech. "tlahtoa" = to speak. '
+                        'Use "quitoa" only for "to say/tell." '
+                        'Reserve "tlacuilolli" strictly for writing/script.\n'
+                        "- Regions/dialects → established forms like \"ipan occequin altepeh.\" "
+                        "Never guess locatives.\n"
                         "- Large populations → \"huel miac tlacah\", not exact modern numbers.\n"
-                        "- Modern/ambiguous concepts → paraphrase in Nahuatl, never coin neologisms.\n\n"
+                        "- Modern concepts → short descriptive paraphrases, no complex compounds or neologisms.\n"
+                        "- Long text → avoid redundant quantifiers (repeated cece/cequin) and excessive clause stacking.\n\n"
                         "If the translation is acceptable, output it exactly as-is.\n"
                         "If there are problems, output ONLY the corrected Nahuatl translation. "
                         "No commentary, no explanations, no notes — just the corrected text."

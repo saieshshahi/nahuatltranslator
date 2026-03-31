@@ -52,9 +52,20 @@ def health():
     return {"ok": True, "app": APP_NAME, "openai": services.openai_available()}
 
 
+# Allowed translation directions — every pair must go through Nahuatl
+_ALLOWED_PAIRS = {("en", "nah"), ("nah", "en"), ("es", "nah"), ("nah", "es")}
+
+
 @app.post("/translate", response_model=TranslateResponse)
 def translate(req: TranslateRequest):
     """OpenAI-powered translation (with variants)."""
+    if (req.src, req.tgt) not in _ALLOWED_PAIRS:
+        return TranslateResponse(
+            engine="openai",
+            variants=[f"ERROR: Unsupported direction {req.src}→{req.tgt}. "
+                      "All translations must go through Nahuatl."],
+        )
+
     if not services.openai_available():
         return TranslateResponse(engine="openai", variants=["ERROR: OPENAI_API_KEY not set"])
 

@@ -17,6 +17,13 @@ function Header() {
   );
 }
 
+// Allowed translation directions: always through Nahuatl
+const VALID_TARGETS = {
+  en: ["nah"],
+  es: ["nah"],
+  nah: ["en", "es"],
+};
+
 function TranslateTab() {
   const [text, setText] = useState("");
   const [src, setSrc] = useState("en");
@@ -27,6 +34,15 @@ function TranslateTab() {
   const [loading, setLoading] = useState(false);
   const [out, setOut] = useState(null);
   const [err, setErr] = useState("");
+
+  // When source changes, auto-fix target if the current pair is invalid
+  function handleSrcChange(newSrc) {
+    setSrc(newSrc);
+    const allowed = VALID_TARGETS[newSrc] || ["nah"];
+    if (!allowed.includes(tgt)) {
+      setTgt(allowed[0]);
+    }
+  }
 
   async function run() {
     setErr("");
@@ -56,7 +72,7 @@ function TranslateTab() {
       <div className="row">
         <div>
           <label>Source</label>
-          <select value={src} onChange={(e) => setSrc(e.target.value)}>
+          <select value={src} onChange={(e) => handleSrcChange(e.target.value)}>
             <option value="en">English</option>
             <option value="es">Spanish</option>
             <option value="nah">Nahuatl</option>
@@ -66,9 +82,11 @@ function TranslateTab() {
         <div>
           <label>Target</label>
           <select value={tgt} onChange={(e) => setTgt(e.target.value)}>
-            <option value="nah">Nahuatl</option>
-            <option value="en">English</option>
-            <option value="es">Spanish</option>
+            {(VALID_TARGETS[src] || ["nah"]).map((code) => (
+              <option key={code} value={code}>
+                {{ nah: "Nahuatl", en: "English", es: "Spanish" }[code]}
+              </option>
+            ))}
           </select>
         </div>
 

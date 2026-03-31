@@ -27,32 +27,96 @@ def _label(code: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Core Nahuatl expert guidance (concise — the AI already knows the grammar)
+# Core Nahuatl expert guidance — shared + direction-specific
 # ---------------------------------------------------------------------------
-NAHUATL_EXPERT_GUIDANCE = """\
+_NAHUATL_CORE = """\
 You are an expert translator specializing in Nahuatl.
 
 HARD RULES — never violate these:
 1. Do NOT invent words, grammar, or idioms. Use only vocabulary you are confident exists in Nahuatl.
-2. If unsure about any word, use a descriptive paraphrase in Nahuatl — never guess.
-3. Do NOT insert Spanish words into Nahuatl output. If a concept has no known Nahuatl \
-word, paraphrase it descriptively in Nahuatl.
-4. Preserve proper nouns exactly unless a well-established Nahuatl form exists.
-5. Prefer conservative, literal translations over fluent speculative ones.
+2. If unsure about any word, use a descriptive paraphrase — never guess.
+3. Preserve proper nouns exactly unless a well-established Nahuatl form exists.
+4. Prefer conservative, literal translations over fluent speculative ones.
 
-LEXICAL PRECISION:
-- "tlahtolli" = language, speech, word(s). Always use this for language/speech. \
-Reserve "tlacuilolli" strictly for writing/script.
-- Dialect or regional variation → paraphrase, e.g. "quenin tlahtoah ipan occequin altepeh."
-- Large populations → "huel miac tlacah" rather than exact modern numbers.
-- Modern/ambiguous concepts (computer, hospital, democracy, etc.): always paraphrase \
-descriptively. Do NOT coin neologisms or calque from Spanish.
-
-GRAMMAR REMINDERS:
+GRAMMAR:
 - Possessive prefixes attach directly: notoca, nocal, itlahtozin (one word, no spaces).
 - Nahuatl has no articles — never insert "the" or "a" equivalents.
 - Default to classical orthography (hu, qu, tz, tl) unless the user specifies modern.\
 """
+
+# --- Generating Nahuatl (target == "nah") ---
+_NAHUATL_GENERATION_RULES = """\
+
+GENERATION RULES (you are producing Nahuatl output):
+- Do NOT insert Spanish words. If a concept has no known Nahuatl word, paraphrase it \
+descriptively in Nahuatl.
+- "tlahtolli" = language/speech. Reserve "tlacuilolli" strictly for writing/script.
+- "tlahtoa" = to speak (a language). Use "quitoa" only when meaning is literally "to say/tell."
+- Regions/dialects → established forms: "ipan occequin altepeh", "ipan occequin tlalmeh." \
+Do NOT guess locative forms like "tlalpan."
+- Large populations → "huel miac tlacah", not exact modern numbers.
+- Modern concepts (computer, hospital, program, research, etc.): use SHORT descriptive \
+paraphrases. Avoid long compound constructions.
+- Long text → prefer simple clause structure. Do NOT chain redundant quantifiers \
+(repeated "cece", "cequin") or stack excessive subordinate clauses. Break complex ideas \
+into shorter Nahuatl sentences.\
+"""
+
+# Extra warning when SOURCE is Spanish (highest leakage risk)
+_SPANISH_SOURCE_ADDENDUM = """\
+
+SPANISH SOURCE WARNING:
+- The input is Spanish. Many Spanish words have well-known Nahuatl equivalents — \
+always use them: iglesia→teocalli, rey→tlatoani, pueblo→altepetl, dios→teotl, \
+sacerdote→teopixqui, agua→atl, casa→calli, tierra→tlalli, sol→tonatiuh.
+- Do NOT leave ANY Spanish word in the output, even common ones (de, y, que, con, por).
+- Watch for false friends: "historia" is not a Nahuatl word — paraphrase as \
+"in tlahtolli nez ipan ye huecauh" or similar.\
+"""
+
+# --- Interpreting Nahuatl (source == "nah") ---
+_NAHUATL_INTERPRETATION_RULES = """\
+
+INTERPRETATION RULES (you are reading Nahuatl input):
+- Preserve subject prefixes (ni-, ti-, ø-) and possessive prefixes (no-, mo-, i-) in meaning. \
+Do not omit person, number, or possession from the translation.
+- Distinguish "tlahtoa" (to speak) from "quitoa" (to say/tell) — translate each precisely.
+- Interpret verb forms conservatively: match tense and aspect to the morphology. \
+Do not upgrade present to past or add modality the source does not express.
+- Analyze morphology first (prefixes, stem, suffixes), then produce a natural translation. \
+Prefer literal accuracy before smoothing.\
+"""
+
+# Extra note when TARGET is Spanish
+_SPANISH_TARGET_ADDENDUM = """\
+
+SPANISH OUTPUT:
+- Produce natural, grammatically correct Spanish.
+- Use gendered articles/adjectives that match the meaning expressed by the Nahuatl, \
+not assumed defaults.
+- If the Nahuatl is ambiguous on gender, prefer masculine as default or use a neutral phrasing.
+- Translate Nahuatl cultural terms conservatively: tlatoani→"el tlatoani" (preserve title), \
+altepetl→"el pueblo" or "la ciudad-estado", calmecac→"el calmécac" (preserve institution name).\
+"""
+
+# Combined constant for backward compatibility (tests, imports)
+NAHUATL_EXPERT_GUIDANCE = _NAHUATL_CORE + _NAHUATL_GENERATION_RULES
+
+
+def _select_guidance(src: str, tgt: str) -> str:
+    """Pick direction-specific and source/target-aware Nahuatl guidance."""
+    if tgt == "nah":
+        base = _NAHUATL_CORE + _NAHUATL_GENERATION_RULES
+        if src == "es":
+            base += _SPANISH_SOURCE_ADDENDUM
+        return base
+    elif src == "nah":
+        base = _NAHUATL_CORE + _NAHUATL_INTERPRETATION_RULES
+        if tgt == "es":
+            base += _SPANISH_TARGET_ADDENDUM
+        return base
+    # Non-Nahuatl pair (shouldn't happen, but handle gracefully)
+    return _NAHUATL_CORE
 
 # ---------------------------------------------------------------------------
 # Few-shot translation examples (these are the main teaching tool for the AI)
@@ -93,6 +157,25 @@ FEWSHOT_TRANSLATION_EXAMPLES = [
      "Pialli, ¿tlein motoca?"),
     ("es", "nah", "Buenos días. ¿Cómo estás?",
      "Cualli tlaneci. ¿Quen tica?"),
+    ("es", "nah", "El agua está muy fría.",
+     "Atl huel itztic."),
+    ("es", "nah", "El rey fue a la iglesia.",
+     "Tlatoani oyah teocalco."),
+    ("es", "nah", "Quiero comer tortillas.",
+     "Nicnequi nitlaxcalcuas."),
+    ("es", "nah", "Ella habla la lengua náhuatl.",
+     "Nahuatlahtolli quitlahtoa."),
+    # --- Nahuatl to Spanish ---
+    ("nah", "es", "Pialli, notoca Maria. Nimitztlazohtla.",
+     "Hola, mi nombre es Maria. Te amo."),
+    ("nah", "es", "Nicnequi atl.",
+     "Quiero agua."),
+    ("nah", "es", "Cualli tonalli. ¿Quen tica?",
+     "Buen día. ¿Cómo estás?"),
+    ("nah", "es", "Tlatoani oyah teocalco.",
+     "El tlatoani fue al templo."),
+    ("nah", "es", "Nahuatlahtolli quitlahtoa.",
+     "Ella habla la lengua náhuatl."),
 ]
 
 # ---------------------------------------------------------------------------
@@ -116,6 +199,19 @@ NEGATIVE_TRANSLATION_EXAMPLES = [
      "Miac dialectos de nahuatl onoc.",
      "Huel miac quenin tlahtoah nahuatlahtolli ipan occequin altepeh.",
      "Spanish leakage + invented word — paraphrase 'dialect' descriptively"),
+    # --- Spanish to Nahuatl negatives (higher leakage risk) ---
+    ("es", "nah", "El sacerdote fue a la iglesia con el rey.",
+     "El sacerdote oyah iglesia-pan con el rey.",
+     "Teopixqui oyah teocalco inahuac tlatoani.",
+     "Spanish leakage — sacerdote→teopixqui, iglesia→teocalli, con→inahuac, el/la are not Nahuatl"),
+    ("es", "nah", "Hay muchos pueblos en esta tierra.",
+     "Miac pueblos ipan ni tierra.",
+     "Huel miac altepemeh ipan nin tlalli.",
+     "Spanish leakage — pueblo→altepetl (pl. altepemeh), tierra→tlalli"),
+    ("es", "nah", "La historia de nuestro pueblo es muy antigua.",
+     "La historia de toaltepetl huel huecauh.",
+     "In tlahtolli nez ipan ye huecauh in toaltepetl huel huehue.",
+     "Spanish leakage — historia is not Nahuatl, la/de are not Nahuatl"),
 ]
 
 
@@ -154,7 +250,12 @@ def _format_fewshot(src: str, tgt: str) -> str:
 # ---------------------------------------------------------------------------
 
 def translation_system_prompt(src: str, tgt: str, variety: str) -> str:
-    """Build a focused system prompt for Nahuatl translation."""
+    """Build a focused system prompt for Nahuatl translation.
+
+    Selects direction-specific guidance: generation rules when producing
+    Nahuatl, interpretation rules when reading Nahuatl.
+    """
+    guidance = _select_guidance(src, tgt)
     fewshot = _format_fewshot(src, tgt)
     variety_note = ""
     if variety and variety.lower() not in ("unknown", ""):
@@ -164,7 +265,7 @@ def translation_system_prompt(src: str, tgt: str, variety: str) -> str:
         )
 
     return f"""\
-{NAHUATL_EXPERT_GUIDANCE}
+{guidance}
 {variety_note}
 
 DIRECTION: {_label(src)} → {_label(tgt)}
