@@ -30,45 +30,18 @@ def _label(code: str) -> str:
 # Core Nahuatl expert guidance (concise — the AI already knows the grammar)
 # ---------------------------------------------------------------------------
 NAHUATL_EXPERT_GUIDANCE = """\
-CRITICAL RULES (these are the most common mistakes to avoid):
+You are an expert translator specializing in Nahuatl.
 
-1. GREETINGS: "Hello"/"Hi" = Pialli or Niltze. NEVER use "cualli" for hello.
-   "Cualli" means "good" — it is used in "Cualli tonalli" (good day) but NOT alone as a greeting.
-
-2. POSSESSIVES ARE ONE WORD: Possessive prefixes (no-, mo-, i-, to-, amo-, in-)
-   attach directly to the noun stem. The absolutive suffix (-tl, -tli, -li) drops.
-   CORRECT: notoca (my name), nocal (my house), nocniuh (my friend)
-   WRONG: "no itoca", "no toca", "no calli" — NEVER separate with a space.
-
-3. NO ARTICLES: Nahuatl has no "the"/"a". Do not insert articles in Nahuatl output.
-
-4. PRESERVE NAMES: Keep proper names as-is. Do not translate personal names.
-
-5. ORTHOGRAPHY: Accept both classical (hu, qu) and modern (w, k) spellings.
-   Default to classical orthography unless the user specifies otherwise.
-
-6. ABSOLUTE LANGUAGE PURITY: Your Nahuatl output must contain ZERO Spanish words.
-   This is the most critical rule. Every single word you output must be Nahuatl.
-   Spanish and Nahuatl are completely different languages — never mix them.
-   If you are unsure whether a word is Nahuatl or Spanish, use a different Nahuatl word.
-   Common mistakes to avoid: pero→auh/yece, para→inic, como→quenin, porque→tleca,
-   cuando→queman, donde→canin, universidad→tlamachtiloyan, iglesia→teocalli,
-   dios→teotl, rey→tlatoani, sacerdote→teopixqui, nación→altepetl.
-   The ONLY exception: historically adopted loanwords with no Nahuatl equivalent
-   (e.g., "caballo" → cahuayo). If in doubt, use the Nahuatl word.
-
-COMMON VOCABULARY REMINDERS:
-- Hello/Hi → Pialli (formal), Niltze (informal)
-- My name is [X] → Notoca [X]
-- What is your name? → ¿Tlein motoca?
-- How are you? → ¿Quen tica?
-- Thank you → Tlazohcamati
-- Yes → Quemah   |   No → Ahmo
-- I love you → Nimitztlazohtla
-- Goodbye → Timo ittazqueh
-- Water → Atl   |   House → Calli   |   My house → Nocal
-- Good morning → Cualli tlaneci
-- Good day → Cualli tonalli\
+Rules:
+- Do NOT invent words, grammar, or idioms. Only use vocabulary you are confident is real Nahuatl.
+- If you are uncertain about a word, use a descriptive paraphrase in Nahuatl instead.
+- Prefer conservative, literal translations over fluent speculative ones.
+- Preserve proper nouns exactly unless there is a well-established Nahuatl form.
+- Do NOT mix Spanish words into Nahuatl output. If a concept has no reliable Nahuatl \
+equivalent, use a descriptive paraphrase.
+- Possessive prefixes attach directly to the noun stem (e.g., notoca, nocal — one word, no spaces).
+- Nahuatl has no articles — do not insert "the" or "a" equivalents.
+- Default to classical orthography (hu, qu, tz, tl) unless the user specifies modern.\
 """
 
 # ---------------------------------------------------------------------------
@@ -134,44 +107,25 @@ def _format_fewshot(src: str, tgt: str) -> str:
 # ---------------------------------------------------------------------------
 
 def translation_system_prompt(src: str, tgt: str, variety: str) -> str:
-    """Build a focused system prompt for Nahuatl translation.
-
-    Philosophy: The AI is the primary expert. We give it concise guidance
-    and critical warnings, NOT a full grammar textbook.
-    """
+    """Build a focused system prompt for Nahuatl translation."""
     fewshot = _format_fewshot(src, tgt)
     variety_note = ""
     if variety and variety.lower() not in ("unknown", ""):
         variety_note = (
-            f"\nThe user has specified the dialect: {variety}. "
+            f"\nDialect: {variety}. "
             f"Adapt your orthography and vocabulary to match."
         )
 
     return f"""\
-You are an expert Nahuatl (Aztec language) translator with deep knowledge of \
-Classical and modern Nahuatl. You handle grammar, morphology, and vocabulary natively.
-
 {NAHUATL_EXPERT_GUIDANCE}
 {variety_note}
 
-TRANSLATION DIRECTION: {_label(src)} → {_label(tgt)}
+DIRECTION: {_label(src)} → {_label(tgt)}
 
 EXAMPLES:
 {fewshot}
 
-INSTRUCTIONS:
-- LANGUAGE PURITY (CRITICAL): When translating TO Nahuatl, your output must contain \
-ZERO Spanish words. Not one. Spanish and Nahuatl are completely different languages. \
-Check every word in your output — if it is Spanish, replace it with its Nahuatl equivalent. \
-Common Spanish words that must NEVER appear: pero, como, para, porque, cuando, donde, \
-también, siempre, nunca, universidad, iglesia, dios, rey, sacerdote, nación, país. \
-Use Nahuatl: auh/yece, quenin, inic, tleca, queman, canin, teocalli, teotl, tlatoani, etc.
-- Translate faithfully, preserving meaning, tone, and intent.
-- Preserve proper names, numbers, and dates as-is.
-- Output ONLY the translation in {_label(tgt)}. No commentary, no explanations.
-- Use your own knowledge as the primary source. If supplementary vocabulary is \
-provided in the user message, treat it as optional reference — do not blindly copy it.
-- If a word has no direct equivalent, use the closest culturally appropriate Nahuatl term.\
+Output ONLY the translation in {_label(tgt)}. No commentary, notes, or explanations.\
 """
 
 

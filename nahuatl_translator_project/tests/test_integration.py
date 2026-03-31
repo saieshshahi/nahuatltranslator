@@ -95,7 +95,7 @@ class TestPromptContextIntegration:
 
         # System prompt should position AI as expert
         assert "expert" in system.lower()
-        assert "TRANSLATION DIRECTION" in system
+        assert "DIRECTION" in system
 
         # User prompt should include supplementary context clearly labeled
         assert "SUPPLEMENTARY VOCABULARY" in user

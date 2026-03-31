@@ -54,45 +54,31 @@ class TestLangLabels:
 class TestExpertGuidance:
     """Verify the expert guidance is concise and focused on critical rules."""
 
-    def test_contains_greeting_warning(self):
-        """Must warn that hello ≠ cualli."""
-        assert "Pialli" in NAHUATL_EXPERT_GUIDANCE
-        assert "cualli" in NAHUATL_EXPERT_GUIDANCE.lower()
-        assert "NEVER" in NAHUATL_EXPERT_GUIDANCE
+    def test_contains_anti_hallucination_rule(self):
+        """Must warn against inventing words."""
+        assert "invent" in NAHUATL_EXPERT_GUIDANCE.lower()
 
     def test_contains_possessive_rule(self):
         """Must enforce possessives as one word."""
         assert "notoca" in NAHUATL_EXPERT_GUIDANCE
         assert "nocal" in NAHUATL_EXPERT_GUIDANCE
-        assert "NEVER separate" in NAHUATL_EXPERT_GUIDANCE or "WRONG" in NAHUATL_EXPERT_GUIDANCE
 
     def test_contains_no_articles_rule(self):
-        assert "NO ARTICLES" in NAHUATL_EXPERT_GUIDANCE or "no article" in NAHUATL_EXPERT_GUIDANCE.lower()
-
-    def test_contains_common_vocabulary(self):
-        """Should have key vocab reminders."""
-        assert "Pialli" in NAHUATL_EXPERT_GUIDANCE
-        assert "Niltze" in NAHUATL_EXPERT_GUIDANCE
-        assert "Tlazohcamati" in NAHUATL_EXPERT_GUIDANCE
-        assert "Quemah" in NAHUATL_EXPERT_GUIDANCE
+        assert "no article" in NAHUATL_EXPERT_GUIDANCE.lower()
 
     def test_guidance_is_concise(self):
-        """Expert guidance should be shorter than a full grammar textbook.
-        The old NAHUATL_LINGUISTIC_CONTEXT was ~2500+ chars. This should be leaner."""
-        assert len(NAHUATL_EXPERT_GUIDANCE) < 3500, (
+        """Expert guidance should be concise — let the model use its own knowledge."""
+        assert len(NAHUATL_EXPERT_GUIDANCE) < 2000, (
             f"Guidance is too long ({len(NAHUATL_EXPERT_GUIDANCE)} chars). "
-            "The AI already knows Nahuatl grammar — keep it concise."
+            "Keep it minimal — the model already knows Nahuatl."
         )
 
     def test_preserve_names_rule(self):
-        assert "PRESERVE NAMES" in NAHUATL_EXPERT_GUIDANCE or "proper names" in NAHUATL_EXPERT_GUIDANCE.lower()
+        assert "proper noun" in NAHUATL_EXPERT_GUIDANCE.lower() or "proper name" in NAHUATL_EXPERT_GUIDANCE.lower()
 
     def test_no_spanish_mixing_rule(self):
-        """Must warn against substituting Spanish words for Nahuatl equivalents."""
-        assert "PURITY" in NAHUATL_EXPERT_GUIDANCE
-        assert "altepetl" in NAHUATL_EXPERT_GUIDANCE
-        assert "tlatoani" in NAHUATL_EXPERT_GUIDANCE
-        assert "teotl" in NAHUATL_EXPERT_GUIDANCE
+        """Must warn against mixing Spanish into Nahuatl output."""
+        assert "spanish" in NAHUATL_EXPERT_GUIDANCE.lower()
 
     def test_colonial_context_for_transcription(self):
         assert "Long-s" in COLONIAL_NAHUATL_TRANSCRIPTION_CONTEXT
@@ -168,7 +154,7 @@ class TestTranslationPrompts:
         prompt = translation_system_prompt("en", "nah", "")
         assert "English" in prompt
         assert "Nahuatl" in prompt
-        assert "TRANSLATION DIRECTION" in prompt
+        assert "DIRECTION" in prompt
 
     def test_system_prompt_with_variety(self):
         prompt = translation_system_prompt("en", "nah", "Huasteca")
@@ -183,14 +169,14 @@ class TestTranslationPrompts:
         prompt = translation_system_prompt("en", "nah", "")
         assert "EXAMPLES" in prompt
 
-    def test_system_prompt_tells_ai_to_use_own_knowledge(self):
-        """Must instruct AI to use its own knowledge first, not blindly copy corpus."""
+    def test_system_prompt_conservative_approach(self):
+        """Must instruct AI to be conservative and avoid inventing words."""
         prompt = translation_system_prompt("en", "nah", "")
-        assert "own knowledge" in prompt.lower() or "your own" in prompt.lower()
+        assert "invent" in prompt.lower() or "conservative" in prompt.lower()
 
     def test_system_prompt_output_only(self):
         prompt = translation_system_prompt("en", "nah", "")
-        assert "ONLY the translation" in prompt
+        assert "ONLY" in prompt and "translation" in prompt.lower()
 
     def test_user_prompt_contains_text(self):
         prompt = translation_user_prompt("Hello world", "en", "nah", "")

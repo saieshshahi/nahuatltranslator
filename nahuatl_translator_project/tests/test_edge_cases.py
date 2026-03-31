@@ -383,7 +383,7 @@ class TestCrossModuleEdgeCases:
 
         prompt = translation_system_prompt("en", "nah", "")
         assert "expert" in prompt.lower()
-        assert "own knowledge" in prompt.lower() or "your own" in prompt.lower()
+        assert "translat" in prompt.lower()
 
     def test_supplementary_context_labeled_correctly(self):
         """User prompt should label corpus context as supplementary."""
@@ -397,10 +397,8 @@ class TestCrossModuleEdgeCases:
         assert "SUPPLEMENTARY" in prompt
 
     def test_no_spanish_mixing_rule_in_guidance(self):
-        """Expert guidance must warn against Spanish word substitution."""
+        """Expert guidance must warn against mixing Spanish."""
         from webapp.prompts import NAHUATL_EXPERT_GUIDANCE
 
-        assert "altepetl" in NAHUATL_EXPERT_GUIDANCE
-        assert "tlatoani" in NAHUATL_EXPERT_GUIDANCE
-        assert "teotl" in NAHUATL_EXPERT_GUIDANCE
-        assert "PURITY" in NAHUATL_EXPERT_GUIDANCE
+        assert "spanish" in NAHUATL_EXPERT_GUIDANCE.lower()
+        assert "invent" in NAHUATL_EXPERT_GUIDANCE.lower()
