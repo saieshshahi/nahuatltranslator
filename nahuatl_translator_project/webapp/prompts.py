@@ -336,26 +336,19 @@ def translation_variants_system_prompt(src: str, tgt: str, variety: str, k: int 
 # ---------------------------------------------------------------------------
 
 COLONIAL_NAHUATL_TRANSCRIPTION_CONTEXT = """\
-COLONIAL-ERA NAHUATL MANUSCRIPT CONVENTIONS:
-- Long-s (ſ): commonly used for 's' in colonial texts. Transcribe as regular 's'.
-- Abbreviations with tildes: ñ above a letter often marks a missing 'n' or 'm'
-  (e.g., "cõ" = "con", "q̃" = "que"). Expand abbreviations when clearly identifiable.
-- Ligatures: 'ct', 'st', 'ff' may appear as connected letterforms.
-- Nahuatl words use Spanish colonial orthography:
-  * "hu" for /w/ (modern: "w")
-  * "qu" before e/i for /k/ (modern: "k")
-  * "cu" for /kʷ/
-  * "tz" for /ts/
-  * "x" for /ʃ/ (like Spanish "x" in "México")
-  * "tl" for the lateral affricate /tɬ/
-- Common colonial abbreviations: "xpo" = "Cristo", "dios" = "Dios",
-  "nro" = "nuestro", "sr" = "señor".
-- Line continuation: a word split across lines may be marked with a hyphen
-  or simply broken. Rejoin split words when the break is obvious.
-- Marginal notes and interlinear glosses may appear; transcribe them separately
-  if visible, marked with [margin:] or [gloss:].
-- Numbers may appear as Roman numerals or Arabic numerals.
-- Folio markers (e.g., "fol. 3r", "fol. 3v") indicate recto/verso pages.\
+DIPLOMATIC TRANSCRIPTION — copy the text exactly as written.
+
+RECOGNITION HINTS (use these to identify glyphs, but do NOT normalize them):
+- Long-s (ſ) is common in colonial texts — transcribe it as 's' since Unicode \
+long-s is impractical, but do NOT change any other letter.
+- Abbreviation marks (tildes, superscripts, q̃, etc.) — copy the glyph exactly. \
+Do NOT expand abbreviations.
+- Ligatures (ct, st, ff) — transcribe as individual letters only if clearly separable.
+- Colonial orthography (hu, qu, tz, tl, x, cu) — copy exactly as written. \
+Do NOT modernize to w, k, etc.
+- If a word is split across lines, keep it split. Do NOT rejoin.
+- Marginal notes — transcribe as [margin: text here].
+- Numbers — copy exactly (Roman or Arabic).\
 """
 
 
@@ -380,30 +373,26 @@ def transcription_system_prompt(language_hint: str = "es", alphabet_hint: str = 
         alphabet_note = f"\nAdditional orthography hint from user: {alphabet_hint}"
 
     return f"""\
-You are an expert paleographer specializing in colonial-era Mesoamerican manuscripts.
-You have deep expertise in reading 16th-18th century handwritten documents in
-Spanish, Nahuatl, and mixed-language colonial texts.
+You are a diplomatic transcriber. Your ONLY job is to copy text exactly as written.
 
 {COLONIAL_NAHUATL_TRANSCRIPTION_CONTEXT}
 
 {lang_note}{alphabet_note}
 
-TRANSCRIPTION RULES:
-- Transcribe ONLY text that is clearly visible. Do NOT guess or fill in missing text.
-- Do NOT correct spelling, grammar, or punctuation — preserve the original exactly.
-- Preserve original wording and orthography, even if archaic or inconsistent.
-- Preserve line breaks and paragraph structure as they appear on the page.
-- Preserve original capitalization and spacing.
-- If a character or word is unclear, mark it with [?] instead of guessing.
-- If you can partially read a word, write what you can and mark unclear
-  parts: e.g., "tlaca[?]li" for a partially legible word.
-- If a section is completely illegible, write [illegible] and move on.
-- Expand obvious abbreviations but mark them: e.g., "que" [expanded from q̃].
-- If marginal notes exist, transcribe them as [margin: text here].
-- Do NOT summarize, interpret, or translate. Only transcribe.
-- Do NOT add commentary or analysis of the text.
-- Transcribe ALL text visible on the page, not just the first few lines.
-- Work systematically from top to bottom, left to right.\
+HARD RULES — never violate these:
+1. Copy every word EXACTLY as it appears. Do NOT normalize, modernize, or correct spelling.
+2. Do NOT expand abbreviations. Copy glyphs like q̃, ñ, xpo as-is.
+3. Do NOT paraphrase, reword, summarize, interpret, or translate.
+4. Preserve all punctuation exactly — do not add, remove, or change any mark.
+5. Preserve capitalization exactly.
+6. Preserve line breaks and paragraph structure as they appear on the page.
+7. Only use [illegible] when characters truly cannot be identified. If you can \
+partially read a word, write what you can see and mark unclear parts with [?].
+8. Do NOT invent or fill in missing text.
+9. Do NOT add commentary, analysis, headers, or labels.
+10. Transcribe ALL visible text, top to bottom, left to right.
+
+Output ONLY the transcription. Nothing else.\
 """
 
 
@@ -435,10 +424,10 @@ def transcription_tile_prompt(
         f"of a manuscript page.\n"
         f"Language hint: {language_hint}. "
         f"Alphabet/orthography hint: {alphabet_hint or '(none)'}\n\n"
-        "Transcribe ALL text visible in this section. "
-        "If text is cut off at the top or bottom edge, transcribe what is visible "
-        "and mark cut-off words with [...]. "
-        "Produce ONLY the transcription, no commentary."
+        "Copy ALL text visible in this section exactly as written. "
+        "Do NOT normalize spelling or expand abbreviations. "
+        "If text is cut off at an edge, copy what is visible and mark cut-off with [...]. "
+        "Output ONLY the transcription."
     )
 
 
@@ -452,7 +441,8 @@ def transcription_stitch_prompt(tile_count: int) -> str:
         "- Merge the segments into one continuous transcription.\n"
         "- Remove duplicate lines that appear in the overlap zones.\n"
         "- Preserve the original line breaks and formatting.\n"
-        "- Do NOT add, remove, or modify any text beyond de-duplicating overlaps.\n"
+        "- Do NOT modify, normalize, or correct any text — only de-duplicate overlaps.\n"
+        "- Preserve all original spelling, abbreviations, and punctuation exactly.\n"
         "- If a word was cut off [...] in one segment but complete in the overlap "
         "of the next, use the complete version.\n"
         "- Output ONLY the merged transcription. No commentary."

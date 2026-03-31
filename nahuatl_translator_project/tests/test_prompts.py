@@ -82,7 +82,7 @@ class TestExpertGuidance:
 
     def test_colonial_context_for_transcription(self):
         assert "Long-s" in COLONIAL_NAHUATL_TRANSCRIPTION_CONTEXT
-        assert "xpo" in COLONIAL_NAHUATL_TRANSCRIPTION_CONTEXT
+        assert "Do NOT expand" in COLONIAL_NAHUATL_TRANSCRIPTION_CONTEXT
 
 
 # ===================================================================
@@ -231,8 +231,8 @@ class TestTranslationPrompts:
 class TestTranscriptionPrompts:
     def test_system_prompt_default(self):
         prompt = transcription_system_prompt()
-        assert "paleographer" in prompt.lower()
-        assert "colonial" in prompt.lower()
+        assert "diplomatic" in prompt.lower()
+        assert "exactly" in prompt.lower()
 
     def test_system_prompt_nahuatl_hint(self):
         prompt = transcription_system_prompt(language_hint="nah")
@@ -249,8 +249,8 @@ class TestTranscriptionPrompts:
 
     def test_transcription_rules_present(self):
         prompt = transcription_system_prompt()
-        assert "TRANSCRIPTION RULES" in prompt
-        assert "clearly visible" in prompt.lower()
+        assert "HARD RULES" in prompt
+        assert "exactly" in prompt.lower()
         assert "[illegible]" in prompt
 
     def test_overview_prompt(self):
