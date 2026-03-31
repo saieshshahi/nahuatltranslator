@@ -40,7 +40,6 @@ class TranslateRequest(BaseModel):
     tgt: str = Field("nah")
     variety: str = Field("Unknown")
     variants: int = Field(1, ge=1, le=5)
-    temperature: float = Field(0.6, ge=0.0, le=2.0)
 
 
 class TranslateResponse(BaseModel):
@@ -66,7 +65,7 @@ def translate(req: TranslateRequest):
             tgt=req.tgt,
             variety=req.variety,
             k=req.variants,
-            temperature=req.temperature,
+
             model=os.getenv("OPENAI_TRANSLATE_MODEL"),
         )
         return TranslateResponse(engine="openai", variants=outs)

@@ -24,7 +24,7 @@ function TranslateTab() {
   const [tgt, setTgt] = useState("nah");
   const [variety, setVariety] = useState("Unknown");
   const [variants, setVariants] = useState(3);
-  const [temperature, setTemperature] = useState(0.6);
+
   const [loading, setLoading] = useState(false);
   const [out, setOut] = useState(null);
   const [err, setErr] = useState("");
@@ -40,7 +40,7 @@ function TranslateTab() {
         tgt,
         variety,
         variants: Number(variants),
-        temperature: Number(temperature),
+
       });
       setOut(res);
     } catch (e) {
@@ -96,19 +96,6 @@ function TranslateTab() {
             onChange={(e) => setVariants(e.target.value)}
           />
           <small>Returns multiple candidate translations for comparison.</small>
-        </div>
-
-        <div>
-          <label>Temperature (0–2)</label>
-          <input
-            type="number"
-            min="0"
-            max="2"
-            step="0.1"
-            value={temperature}
-            onChange={(e) => setTemperature(e.target.value)}
-          />
-          <small>Higher = more variation.</small>
         </div>
 
         <div style={{ display: "flex", alignItems: "end", gap: 10 }}>
