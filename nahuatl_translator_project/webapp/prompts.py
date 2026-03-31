@@ -331,6 +331,57 @@ def translation_variants_system_prompt(src: str, tgt: str, variety: str, k: int 
 
 
 # ---------------------------------------------------------------------------
+# Variant review prompt (post-generation diagnostics)
+# ---------------------------------------------------------------------------
+
+def variant_review_system_prompt(src: str, tgt: str) -> str:
+    """Compact review prompt that flags likely issues per variant.
+
+    Does NOT rank, rewrite, or choose — only diagnoses.
+    """
+    checks = [
+        "Spanish leakage: any Spanish words remaining in Nahuatl output",
+        "Invented vocabulary: words that look fabricated or are not attested Nahuatl",
+        "Verb confusion: 'quitoa' used where 'tlahtoa' is correct (speaking vs saying)",
+        "Lexical drift: 'tlacuilolli' for language (should be 'tlahtolli'), wrong locatives",
+        "Modern concepts: complex compound neologisms instead of short paraphrases",
+        "Clause stacking: excessive subordination or redundant quantifiers (cece, cequin)",
+    ]
+    if src == "nah":
+        checks = [
+            "Dropped morphology: person, possession, or number omitted from translation",
+            "Verb confusion: 'tlahtoa' (speak) vs 'quitoa' (say) mistranslated",
+            "Over-interpretation: tense/aspect/modality added beyond what morphology shows",
+            "Semantic drift: meaning shifted or smoothed beyond what the source says",
+            "Cultural terms: Nahuatl titles/institutions incorrectly modernized",
+        ]
+
+    checks_str = "\n".join(f"- {c}" for c in checks)
+    return f"""\
+You are a Nahuatl translation reviewer. You do NOT rank or rewrite translations.
+You flag likely issues so a human reviewer can evaluate them faster.
+
+CHECK FOR:
+{checks_str}
+
+For each variant, output a JSON object:
+{{"variant": 1, "flags": ["short description of issue"], "clean": true/false}}
+
+If a variant has no issues, output: {{"variant": 1, "flags": [], "clean": true}}
+
+Output ONLY a JSON array of objects, one per variant. No commentary.\
+"""
+
+
+def variant_review_user_prompt(source: str, variants: list, src: str, tgt: str) -> str:
+    """Build user prompt for variant review."""
+    parts = [f"Source ({_label(src)}):\n{source}\n"]
+    for i, v in enumerate(variants, 1):
+        parts.append(f"Variant {i}:\n{v}")
+    return "\n\n".join(parts)
+
+
+# ---------------------------------------------------------------------------
 # Transcription prompts (Phase 3)
 # ---------------------------------------------------------------------------
 
@@ -388,15 +439,19 @@ Spanish, Nahuatl, and mixed-language colonial texts.
 {lang_note}{alphabet_note}
 
 TRANSCRIPTION RULES:
-- Transcribe EXACTLY what you see. Do NOT translate or paraphrase.
-- Preserve original line breaks as they appear on the page.
-- Preserve original punctuation, capitalization, and spacing.
-- If a character or word is unclear, mark it with [?] or [illegible].
+- Transcribe ONLY text that is clearly visible. Do NOT guess or fill in missing text.
+- Do NOT correct spelling, grammar, or punctuation — preserve the original exactly.
+- Preserve original wording and orthography, even if archaic or inconsistent.
+- Preserve line breaks and paragraph structure as they appear on the page.
+- Preserve original capitalization and spacing.
+- If a character or word is unclear, mark it with [?] instead of guessing.
 - If you can partially read a word, write what you can and mark unclear
   parts: e.g., "tlaca[?]li" for a partially legible word.
+- If a section is completely illegible, write [illegible] and move on.
 - Expand obvious abbreviations but mark them: e.g., "que" [expanded from q̃].
 - If marginal notes exist, transcribe them as [margin: text here].
-- Do NOT add commentary, analysis, or translation. Only transcribe.
+- Do NOT summarize, interpret, or translate. Only transcribe.
+- Do NOT add commentary or analysis of the text.
 - Transcribe ALL text visible on the page, not just the first few lines.
 - Work systematically from top to bottom, left to right.\
 """
@@ -479,13 +534,29 @@ You understand the difference between ethnic groups, places, deities, titles, an
 individuals in Mesoamerican contexts.
 {entity_block}{rules_block}
 
+EXTRACTION RULES:
+- Extract ONLY entities that are explicitly mentioned in the text. \
+Do NOT infer, assume, or hallucinate entities that are not present.
+- Preserve the exact spelling of names as they appear in the source text. \
+Do not normalize or modernize spelling (e.g., keep "Moteuczoma" if that is what the text says).
+- If an entity is ambiguous, prefer conservative classification — \
+mark the type you are most confident about.
+- If a name could be a person, a people, or a place, use the disambiguation \
+rules and surrounding context to decide. When still uncertain, include the entity \
+once with the most likely type and add a note.
+- Do NOT extract generic nouns as entities (e.g., "man", "city", "god" without a name).
+- Titles (tlatoani, cihuacoatl) are entities only when attributed to a specific \
+person or referenced as an institution. Bare vocabulary words are not entities.
+
 OUTPUT RULES:
 - Return ONLY valid JSON. No markdown code fences, no commentary.
+- If a schema hint is provided, follow its structure exactly — use the same keys, \
+nesting, and value types. Do not add extra top-level keys or change the shape.
 - Classify each entity with the correct type based on context and the reference above.
 - When in doubt between two classifications, prefer the one supported by the \
 disambiguation rules.
 - If the text contains no extractable entities for a category, use an empty list [].
-- Preserve original spelling of names from the source text.\
+- Every extracted entity must be traceable to specific words in the source text.\
 """
 
 
@@ -498,8 +569,15 @@ def extraction_user_prompt(
     parts = [f"INSTRUCTION:\n{instruction.strip()}"]
 
     if schema_hint:
-        parts.append(f"SCHEMA HINT (structure your output like this):\n{schema_hint.strip()}")
+        parts.append(
+            f"SCHEMA (follow this structure exactly — use these keys and types):\n"
+            f"{schema_hint.strip()}"
+        )
 
     parts.append(f"TEXT:\n{text.strip()}")
+    parts.append(
+        "Reminder: extract only entities explicitly present in the text above. "
+        "Do not add entities from background knowledge."
+    )
 
     return "\n\n".join(parts)

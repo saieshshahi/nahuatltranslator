@@ -84,6 +84,31 @@ def translate(req: TranslateRequest):
         return TranslateResponse(engine="openai", variants=[f"ERROR: {e}"])
 
 
+class ReviewRequest(BaseModel):
+    text: str = Field(..., min_length=1)
+    variants: List[str] = Field(...)
+    src: str = Field("en")
+    tgt: str = Field("nah")
+
+
+@app.post("/review")
+def review(req: ReviewRequest):
+    """Post-generation review: flag likely issues per variant."""
+    if not services.openai_available():
+        return {"diagnostics": []}
+    try:
+        diagnostics = services.review_variants(
+            text=req.text,
+            variants=req.variants,
+            src=req.src,
+            tgt=req.tgt,
+            model=os.getenv("OPENAI_TRANSLATE_MODEL"),
+        )
+        return {"diagnostics": diagnostics}
+    except Exception:
+        return {"diagnostics": []}
+
+
 class ExtractRequest(BaseModel):
     text: str
     instruction: str

@@ -124,7 +124,7 @@ class TestPromptContextIntegration:
         # User should have the text and schema
         assert "Mexica" in user
         assert "Tenochtitlan" in user
-        assert "SCHEMA HINT" in user
+        assert "SCHEMA" in user
 
 
 # ===================================================================

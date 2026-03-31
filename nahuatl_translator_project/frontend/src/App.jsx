@@ -34,6 +34,8 @@ function TranslateTab() {
   const [loading, setLoading] = useState(false);
   const [out, setOut] = useState(null);
   const [err, setErr] = useState("");
+  const [diagnostics, setDiagnostics] = useState(null);
+  const [reviewing, setReviewing] = useState(false);
 
   // When source changes, auto-fix target if the current pair is invalid
   function handleSrcChange(newSrc) {
@@ -48,6 +50,7 @@ function TranslateTab() {
     setErr("");
     setLoading(true);
     setOut(null);
+    setDiagnostics(null);
     try {
       const res = await postJSON("/translate", {
         text,
@@ -55,9 +58,17 @@ function TranslateTab() {
         tgt,
         variety,
         variants: Number(variants),
-
       });
       setOut(res);
+
+      // Fire review pass in background (non-blocking)
+      if (res.variants && res.variants.length > 0 && !res.variants[0].startsWith("ERROR")) {
+        setReviewing(true);
+        postJSON("/review", { text, variants: res.variants, src, tgt })
+          .then((r) => setDiagnostics(r.diagnostics || []))
+          .catch(() => setDiagnostics([]))
+          .finally(() => setReviewing(false));
+      }
     } catch (e) {
       setErr(e.message);
     } finally {
@@ -125,6 +136,7 @@ function TranslateTab() {
               setText("");
               setOut(null);
               setErr("");
+              setDiagnostics(null);
             }}
           >
             Clear
@@ -144,13 +156,42 @@ function TranslateTab() {
       {out && out.variants && (
         <div style={{ marginTop: 12 }}>
           <label>Variants</label>
-          {out.variants.map((t, i) => (
-            <pre key={i}>
-              <b>#{i + 1}</b>
-              {"\n"}
-              {t}
-            </pre>
-          ))}
+          {out.variants.map((t, i) => {
+            const diag = diagnostics?.find((d) => d.variant === i + 1);
+            return (
+              <div key={i} style={{ marginBottom: 8 }}>
+                <pre>
+                  <b>#{i + 1}</b>
+                  {"\n"}
+                  {t}
+                </pre>
+                {diag && diag.flags && diag.flags.length > 0 && (
+                  <div
+                    style={{
+                      margin: "4px 0 0 12px",
+                      padding: "6px 10px",
+                      background: "rgba(255,180,50,0.12)",
+                      borderLeft: "3px solid #f0a030",
+                      borderRadius: 4,
+                      fontSize: "0.85em",
+                    }}
+                  >
+                    {diag.flags.map((f, fi) => (
+                      <div key={fi} style={{ color: "#e8a020" }}>⚠ {f}</div>
+                    ))}
+                  </div>
+                )}
+                {diag && diag.clean && (
+                  <div style={{ margin: "4px 0 0 12px", fontSize: "0.85em", color: "#50c878" }}>
+                    ✓ No issues detected
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {reviewing && (
+            <p style={{ opacity: 0.6, fontSize: "0.85em" }}>Reviewing variants for issues…</p>
+          )}
         </div>
       )}
     </div>

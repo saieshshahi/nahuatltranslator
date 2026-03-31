@@ -394,6 +394,52 @@ def openai_translate_variants(
     return cleaned
 
 
+def review_variants(
+    text: str,
+    variants: List[str],
+    src: str,
+    tgt: str,
+    model: Optional[str] = None,
+) -> List[dict]:
+    """Post-generation review: flag likely issues per variant without ranking or rewriting.
+
+    Returns a list of {"variant": int, "flags": [...], "clean": bool} dicts.
+    """
+    from openai import OpenAI
+    from webapp.prompts import variant_review_system_prompt, variant_review_user_prompt
+
+    if not variants or not openai_available():
+        return []
+
+    model = model or os.getenv("OPENAI_TRANSLATE_MODEL", "gpt-5")
+    client = OpenAI()
+
+    system = variant_review_system_prompt(src, tgt)
+    user = variant_review_user_prompt(text, variants, src, tgt)
+
+    try:
+        kwargs = dict(
+            model=model,
+            input=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+        )
+        if _supports_temperature(model):
+            kwargs["temperature"] = 0.0
+        resp = client.responses.create(**kwargs)
+        raw = (resp.output_text or "").strip()
+        # Strip markdown code fences if present
+        if raw.startswith("```"):
+            raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+        parsed = json.loads(raw)
+        if isinstance(parsed, list):
+            return parsed
+        return []
+    except Exception:
+        return []
+
+
 def _image_to_data_url(image_path: str) -> str:
     """Convert an image file to a base64 data URL for the OpenAI API."""
     import base64
@@ -630,13 +676,20 @@ def openai_extract(
     )
 
     try:
-        resp = client.responses.create(
+        extract_kwargs = dict(
             model=model,
             input=[
                 {"role": "system", "content": system},
                 {"role": "user", "content": user},
             ],
         )
-        return (resp.output_text or "").strip()
+        if _supports_temperature(model):
+            extract_kwargs["temperature"] = 0.0
+        resp = client.responses.create(**extract_kwargs)
+        raw = (resp.output_text or "").strip()
+        # Strip markdown code fences if the model wraps JSON in ```
+        if raw.startswith("```"):
+            raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+        return raw
     except Exception as e:
         raise RuntimeError(f"OpenAI extraction failed: {e}") from e

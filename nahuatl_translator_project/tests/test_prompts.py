@@ -250,7 +250,7 @@ class TestTranscriptionPrompts:
     def test_transcription_rules_present(self):
         prompt = transcription_system_prompt()
         assert "TRANSCRIPTION RULES" in prompt
-        assert "EXACTLY what you see" in prompt
+        assert "clearly visible" in prompt.lower()
         assert "[illegible]" in prompt
 
     def test_overview_prompt(self):
@@ -322,7 +322,7 @@ class TestExtractionPrompts:
             instruction="Extract entities.",
             schema_hint='{"people": [], "places": []}',
         )
-        assert "SCHEMA HINT" in prompt
+        assert "SCHEMA" in prompt
         assert '"people"' in prompt
 
     def test_user_prompt_without_schema(self):
