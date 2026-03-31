@@ -41,10 +41,12 @@ word, paraphrase it descriptively in Nahuatl.
 5. Prefer conservative, literal translations over fluent speculative ones.
 
 LEXICAL PRECISION:
-- "tlahtolli" = language, speech, word(s). Use this when the source means language or speech.
-- Do NOT use writing-related terms (e.g., tlacuilolli) unless the source explicitly means writing.
-- Modern/technical concepts (computer, internet, democracy, etc.): paraphrase descriptively. \
-Do NOT coin neologisms or calque from Spanish.
+- "tlahtolli" = language, speech, word(s). Always use this for language/speech. \
+Reserve "tlacuilolli" strictly for writing/script.
+- Dialect or regional variation → paraphrase, e.g. "quenin tlahtoah ipan occequin altepeh."
+- Large populations → "huel miac tlacah" rather than exact modern numbers.
+- Modern/ambiguous concepts (computer, hospital, democracy, etc.): always paraphrase \
+descriptively. Do NOT coin neologisms or calque from Spanish.
 
 GRAMMAR REMINDERS:
 - Possessive prefixes attach directly: notoca, nocal, itlahtozin (one word, no spaces).
@@ -110,6 +112,10 @@ NEGATIVE_TRANSLATION_EXAMPLES = [
      "Nicnequi niaz hospital-pan.",
      "Nicnequi niaz in calli campa tepatiloya.",
      "Spanish leakage — 'hospital' must be paraphrased, not borrowed"),
+    ("en", "nah", "There are many dialects of Nahuatl.",
+     "Miac dialectos de nahuatl onoc.",
+     "Huel miac quenin tlahtoah nahuatlahtolli ipan occequin altepeh.",
+     "Spanish leakage + invented word — paraphrase 'dialect' descriptively"),
 ]
 
 
