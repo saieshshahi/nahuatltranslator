@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from webapp import services
 from webapp.ocr import extract_text, render_pdf_page_to_png
+from webapp.prompt_guard import scan_input, sanitize_input
 from webapp.evaluation import (
     evaluate_golden_pairs,
     compute_corpus_stats,
@@ -66,12 +67,21 @@ def translate(req: TranslateRequest):
                       "All translations must go through Nahuatl."],
         )
 
+    # Prompt injection guard
+    cleaned = sanitize_input(req.text)
+    scan = scan_input(cleaned)
+    if scan.should_block:
+        return TranslateResponse(
+            engine="openai",
+            variants=["ERROR: Input rejected — suspicious content detected."],
+        )
+
     if not services.openai_available():
         return TranslateResponse(engine="openai", variants=["ERROR: OPENAI_API_KEY not set"])
 
     try:
         outs = services.openai_translate_variants(
-            text=req.text,
+            text=cleaned,
             src=req.src,
             tgt=req.tgt,
             variety=req.variety,
@@ -92,6 +102,12 @@ class ExtractRequest(BaseModel):
 
 @app.post("/extract")
 def extract(req: ExtractRequest):
+    # Prompt injection guard — scan both text and instruction
+    for field in [req.text, req.instruction, req.schema_hint]:
+        scan = scan_input(sanitize_input(field))
+        if scan.should_block:
+            return {"engine": "openai", "output": "ERROR: Input rejected — suspicious content detected."}
+
     if not services.openai_available():
         return {"engine": "openai", "output": "ERROR: OPENAI_API_KEY not set"}
     try:
