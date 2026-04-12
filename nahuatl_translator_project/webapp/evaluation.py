@@ -17,6 +17,13 @@ from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
+# BERTScore — optional heavy dependency
+try:
+    from bert_score import score as _bert_score_fn
+    HAS_BERTSCORE = True
+except ImportError:
+    HAS_BERTSCORE = False
+
 
 # ===================================================================
 # Core metric functions
@@ -180,6 +187,34 @@ def compute_ter(reference: str, hypothesis: str) -> float:
     return dp[n] / len(ref_tokens)
 
 
+def compute_bertscore(reference: str, hypothesis: str,
+                      model_type: str = "xlm-roberta-base") -> float:
+    """BERTScore F1 using a multilingual transformer model.
+
+    Returns the F1 component of BERTScore (0-1, higher is better).
+    Falls back to 0.0 if bert_score is not installed.
+
+    Uses xlm-roberta-base by default — covers 100 languages including
+    Spanish and English, and provides reasonable subword coverage for
+    Nahuatl via its shared Latin-script vocabulary.
+    """
+    if not HAS_BERTSCORE:
+        return 0.0
+    if not reference.strip() or not hypothesis.strip():
+        return 0.0
+    try:
+        _P, _R, F1 = _bert_score_fn(
+            [hypothesis], [reference],
+            model_type=model_type,
+            num_layers=10,       # slightly faster than full 12
+            verbose=False,
+            rescale_with_baseline=False,
+        )
+        return float(F1[0])
+    except Exception:
+        return 0.0
+
+
 def normalize_nahuatl(text: str) -> str:
     """Normalize Nahuatl text for comparison."""
     t = text.lower().strip()
@@ -205,6 +240,7 @@ class PairResult:
     chrf: float
     meteor: float
     ter: float
+    bertscore: float
     latency_ms: float
     token_estimate: int
     spanish_words_found: List[str]
@@ -217,6 +253,7 @@ class AggregateScores:
     chrf: float = 0.0
     meteor: float = 0.0
     ter: float = 0.0
+    bertscore: float = 0.0
     count: int = 0
     contamination_rate: float = 0.0
 
@@ -298,6 +335,7 @@ def _aggregate_pairs(pairs: List[PairResult]) -> AggregateScores:
         chrf=sum(p.chrf for p in pairs) / n,
         meteor=sum(p.meteor for p in pairs) / n,
         ter=sum(p.ter for p in pairs) / n,
+        bertscore=sum(p.bertscore for p in pairs) / n,
         count=n,
         contamination_rate=contaminated / n,
     )
@@ -367,6 +405,7 @@ def evaluate_golden_pairs(
         chrf = compute_chrf(expected, predicted)
         meteor = compute_meteor(expected, predicted)
         ter = compute_ter(expected, predicted)
+        bscore = compute_bertscore(expected, predicted)
 
         # Spanish contamination (only for Nahuatl output)
         spanish_found = []
@@ -390,6 +429,7 @@ def evaluate_golden_pairs(
             chrf=round(chrf, 4),
             meteor=round(meteor, 4),
             ter=round(ter, 4),
+            bertscore=round(bscore, 4),
             latency_ms=round(latency_ms, 1),
             token_estimate=input_tokens + output_tokens,
             spanish_words_found=spanish_found,
