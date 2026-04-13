@@ -385,6 +385,11 @@ def evaluate_golden_pairs(
     pair_results: List[PairResult] = []
     total_cost = 0.0
 
+    # Phase 1: translate all pairs and compute fast metrics
+    all_expected: List[str] = []
+    all_predicted: List[str] = []
+    phase1_data: List[dict] = []
+
     for pair in filtered:
         src_text = pair["src"]
         expected = pair["tgt"]
@@ -400,12 +405,11 @@ def evaluate_golden_pairs(
             predicted = f"[ERROR: {e}]"
         latency_ms = (time.time() - start) * 1000
 
-        # Compute metrics
+        # Compute fast metrics
         bleu = compute_bleu(expected, predicted)
         chrf = compute_chrf(expected, predicted)
         meteor = compute_meteor(expected, predicted)
         ter = compute_ter(expected, predicted)
-        bscore = compute_bertscore(expected, predicted)
 
         # Spanish contamination (only for Nahuatl output)
         spanish_found = []
@@ -418,22 +422,70 @@ def evaluate_golden_pairs(
         cost = _estimate_cost(input_tokens, output_tokens, model)
         total_cost += cost
 
-        pair_results.append(PairResult(
-            src=src_text,
-            tgt_expected=expected,
-            tgt_predicted=predicted,
-            src_lang=src_lang,
-            tgt_lang=tgt_lang,
-            category=category,
-            bleu=round(bleu, 4),
-            chrf=round(chrf, 4),
-            meteor=round(meteor, 4),
-            ter=round(ter, 4),
-            bertscore=round(bscore, 4),
-            latency_ms=round(latency_ms, 1),
-            token_estimate=input_tokens + output_tokens,
-            spanish_words_found=spanish_found,
+        all_expected.append(expected)
+        all_predicted.append(predicted)
+        phase1_data.append(dict(
+            src=src_text, expected=expected, predicted=predicted,
+            src_lang=src_lang, tgt_lang=tgt_lang, category=category,
+            bleu=bleu, chrf=chrf, meteor=meteor, ter=ter,
+            latency_ms=latency_ms, input_tokens=input_tokens,
+            output_tokens=output_tokens, spanish_found=spanish_found,
             notes=pair.get("notes", ""),
+        ))
+
+    # Phase 2: batch BERTScore in one call (loads model once)
+    bscores = [0.0] * len(phase1_data)
+    if HAS_BERTSCORE and all_expected:
+        batch_ok = False
+        try:
+            _P, _R, F1 = _bert_score_fn(
+                all_predicted, all_expected,
+                model_type="xlm-roberta-base",
+                num_layers=10,
+                verbose=False,
+                rescale_with_baseline=False,
+            )
+            bscores = [float(f) for f in F1]
+            batch_ok = True
+        except Exception as e:
+            import sys
+            print(f"BERTScore batch error: {type(e).__name__}: {e}", file=sys.stderr)
+
+        # Fallback: score individually if batch failed
+        if not batch_ok:
+            import sys
+            print("BERTScore: falling back to per-item scoring...", file=sys.stderr)
+            for i, (exp, pred) in enumerate(zip(all_expected, all_predicted)):
+                try:
+                    _P, _R, F1 = _bert_score_fn(
+                        [pred], [exp],
+                        model_type="xlm-roberta-base",
+                        num_layers=10,
+                        verbose=False,
+                        rescale_with_baseline=False,
+                    )
+                    bscores[i] = float(F1[0])
+                except Exception:
+                    bscores[i] = 0.0
+
+    # Phase 3: assemble PairResult objects
+    for i, d in enumerate(phase1_data):
+        pair_results.append(PairResult(
+            src=d["src"],
+            tgt_expected=d["expected"],
+            tgt_predicted=d["predicted"],
+            src_lang=d["src_lang"],
+            tgt_lang=d["tgt_lang"],
+            category=d["category"],
+            bleu=round(d["bleu"], 4),
+            chrf=round(d["chrf"], 4),
+            meteor=round(d["meteor"], 4),
+            ter=round(d["ter"], 4),
+            bertscore=round(bscores[i], 4),
+            latency_ms=round(d["latency_ms"], 1),
+            token_estimate=d["input_tokens"] + d["output_tokens"],
+            spanish_words_found=d["spanish_found"],
+            notes=d["notes"],
         ))
 
     # Aggregate

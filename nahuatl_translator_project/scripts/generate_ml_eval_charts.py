@@ -368,7 +368,7 @@ def chart_per_pair_heatmap(data: dict):
         src_short = p["src"][:30] + "..." if len(p["src"]) > 30 else p["src"]
         ylabels.append(f"{p['src_lang']}→{p['tgt_lang']} | {src_short}")
 
-    fig, ax = plt.subplots(figsize=(12, max(8, n * 0.25)))
+    fig, ax = plt.subplots(figsize=(12, min(13, max(8, n * 0.25))))
     im = ax.imshow(matrix, cmap="RdYlGn", aspect="auto", vmin=0, vmax=1)
     ax.set_xticks(range(5))
     ax.set_xticklabels(["BLEU", "chrF", "METEOR", "1-TER", "BERTScore"])
@@ -384,7 +384,7 @@ def chart_score_distributions(data: dict):
     """Histograms: distribution of each metric across all pairs."""
     pairs = data["pairs"]
 
-    fig, axes = plt.subplots(2, 3, figsize=(18, 10))
+    fig, axes = plt.subplots(2, 3, figsize=(13, 8))
 
     metric_info = [
         ("bleu", "BLEU", C[0]),
@@ -422,7 +422,7 @@ def chart_metric_correlations(data: dict):
     metrics = ["bleu", "chrf", "meteor", "ter", "bertscore"]
     labels = ["BLEU", "chrF", "METEOR", "TER", "BERTScore"]
 
-    fig, axes = plt.subplots(5, 5, figsize=(20, 20))
+    fig, axes = plt.subplots(5, 5, figsize=(13, 13))
     for i, (mi, li) in enumerate(zip(metrics, labels)):
         for j, (mj, lj) in enumerate(zip(metrics, labels)):
             ax = axes[i][j]
@@ -748,7 +748,7 @@ def chart_summary_table(data: dict):
                      f"{s.get('bertscore', 0):.3f}",
                      str(s["count"]), f"{s['contamination_rate']:.1%}"])
 
-    fig, ax = plt.subplots(figsize=(16, 3 + len(rows) * 0.4))
+    fig, ax = plt.subplots(figsize=(13, min(13, 3 + len(rows) * 0.4)))
     ax.axis("off")
     n_cols = 8
     table = ax.table(

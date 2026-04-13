@@ -576,6 +576,174 @@
       "tgt_lang": "nah",
       "category": "conversational_es",
       "notes": "Spanish yes to Nahuatl"
+    },
+    {
+      "src": "Cualli tonalli",
+      "tgt": "Buenos días",
+      "src_lang": "nah",
+      "tgt_lang": "es",
+      "category": "greeting_nah_es",
+      "notes": "Nahuatl greeting to Spanish"
+    },
+    {
+      "src": "Tlazohcamati",
+      "tgt": "Gracias",
+      "src_lang": "nah",
+      "tgt_lang": "es",
+      "category": "greeting_nah_es",
+      "notes": "Nahuatl thank you to Spanish"
+    },
+    {
+      "src": "Cualli yohualli",
+      "tgt": "Buenas noches",
+      "src_lang": "nah",
+      "tgt_lang": "es",
+      "category": "greeting_nah_es",
+      "notes": "Good night to Spanish"
+    },
+    {
+      "src": "atl",
+      "tgt": "agua",
+      "src_lang": "nah",
+      "tgt_lang": "es",
+      "category": "vocabulary_nah_es",
+      "notes": "Basic noun nah→es"
+    },
+    {
+      "src": "calli",
+      "tgt": "casa",
+      "src_lang": "nah",
+      "tgt_lang": "es",
+      "category": "vocabulary_nah_es",
+      "notes": "Basic noun nah→es"
+    },
+    {
+      "src": "tonatiuh",
+      "tgt": "sol",
+      "src_lang": "nah",
+      "tgt_lang": "es",
+      "category": "vocabulary_nah_es",
+      "notes": "Also deity name"
+    },
+    {
+      "src": "xochitl",
+      "tgt": "flor",
+      "src_lang": "nah",
+      "tgt_lang": "es",
+      "category": "vocabulary_nah_es",
+      "notes": "Common in Nahuatl poetry"
+    },
+    {
+      "src": "coatl",
+      "tgt": "serpiente",
+      "src_lang": "nah",
+      "tgt_lang": "es",
+      "category": "vocabulary_nah_es",
+      "notes": "As in Quetzalcoatl"
+    },
+    {
+      "src": "tepetl",
+      "tgt": "montaña",
+      "src_lang": "nah",
+      "tgt_lang": "es",
+      "category": "vocabulary_nah_es",
+      "notes": "As in Chapultepec"
+    },
+    {
+      "src": "metztli",
+      "tgt": "luna",
+      "src_lang": "nah",
+      "tgt_lang": "es",
+      "category": "vocabulary_nah_es",
+      "notes": "Moon nah→es"
+    },
+    {
+      "src": "cihuatl",
+      "tgt": "mujer",
+      "src_lang": "nah",
+      "tgt_lang": "es",
+      "category": "vocabulary_nah_es",
+      "notes": "Woman nah→es"
+    },
+    {
+      "src": "tlacatl",
+      "tgt": "hombre",
+      "src_lang": "nah",
+      "tgt_lang": "es",
+      "category": "vocabulary_nah_es",
+      "notes": "Man/person nah→es"
+    },
+    {
+      "src": "tlatoani",
+      "tgt": "gobernante",
+      "src_lang": "nah",
+      "tgt_lang": "es",
+      "category": "vocabulary_nah_es",
+      "notes": "Ruler/speaker nah→es"
+    },
+    {
+      "src": "Nicnequi atl",
+      "tgt": "Quiero agua",
+      "src_lang": "nah",
+      "tgt_lang": "es",
+      "category": "phrase_nah_es",
+      "notes": "ni-c-nequi atl = I want water"
+    },
+    {
+      "src": "In tlacatl ihuan in cihuatl",
+      "tgt": "El hombre y la mujer",
+      "src_lang": "nah",
+      "tgt_lang": "es",
+      "category": "phrase_nah_es",
+      "notes": "in = article marker, ihuan = and"
+    },
+    {
+      "src": "Nican tlacah",
+      "tgt": "Aquí están las personas",
+      "src_lang": "nah",
+      "tgt_lang": "es",
+      "category": "phrase_nah_es",
+      "notes": "nican = here, tlacah = people"
+    },
+    {
+      "src": "Pialli, notoca Maria.",
+      "tgt": "Hola, me llamo Maria.",
+      "src_lang": "nah",
+      "tgt_lang": "es",
+      "category": "conversational_nah_es",
+      "notes": "Nahuatl intro to Spanish"
+    },
+    {
+      "src": "Nimitztlazohtla",
+      "tgt": "Te amo",
+      "src_lang": "nah",
+      "tgt_lang": "es",
+      "category": "conversational_nah_es",
+      "notes": "I love you nah→es"
+    },
+    {
+      "src": "Ahmo nicmati",
+      "tgt": "No lo sé",
+      "src_lang": "nah",
+      "tgt_lang": "es",
+      "category": "conversational_nah_es",
+      "notes": "I don't understand/know nah→es"
+    },
+    {
+      "src": "nocal",
+      "tgt": "mi casa",
+      "src_lang": "nah",
+      "tgt_lang": "es",
+      "category": "morphology_nah_es",
+      "notes": "Possessive no- + cal, nah→es"
+    },
+    {
+      "src": "Amo niccahua",
+      "tgt": "No lo dejo",
+      "src_lang": "nah",
+      "tgt_lang": "es",
+      "category": "morphology_nah_es",
+      "notes": "amo=not, ni-c-cahua = I leave it, nah→es"
     }
   ]
 }
