@@ -1,7 +1,49 @@
 import os
+import time
+import threading
+from collections import defaultdict
 from pathlib import Path
 
 import gradio as gr
+
+
+# ===================================================================
+# Simple in-memory rate limiter (per-session, no external dependency)
+# ===================================================================
+
+class RateLimiter:
+    """Token-bucket rate limiter keyed by caller identity."""
+
+    def __init__(self, max_calls: int = 20, window_seconds: int = 60):
+        self.max_calls = max_calls
+        self.window = window_seconds
+        self._calls: dict[str, list[float]] = defaultdict(list)
+        self._lock = threading.Lock()
+
+    def check(self, key: str = "global") -> bool:
+        """Return True if the request is allowed, False if rate-limited."""
+        now = time.time()
+        with self._lock:
+            # Prune old entries
+            self._calls[key] = [
+                t for t in self._calls[key] if now - t < self.window
+            ]
+            if len(self._calls[key]) >= self.max_calls:
+                return False
+            self._calls[key].append(now)
+            return True
+
+    def remaining(self, key: str = "global") -> int:
+        now = time.time()
+        with self._lock:
+            self._calls[key] = [
+                t for t in self._calls[key] if now - t < self.window
+            ]
+            return max(0, self.max_calls - len(self._calls[key]))
+
+
+# 20 translation requests per minute — adjust as needed
+_rate_limiter = RateLimiter(max_calls=20, window_seconds=60)
 
 from webapp.ocr import extract_text, render_pdf_page_to_png
 from webapp.services import (
@@ -85,6 +127,9 @@ def translate_ui(
     text = (text or "").strip()
     if not text:
         return "(empty input)"
+    if not _rate_limiter.check():
+        remaining_wait = int(_rate_limiter.window - (time.time() - min(_rate_limiter._calls.get("global", [time.time()]))))
+        return f"⚠️ Rate limited — max {_rate_limiter.max_calls} requests per minute. Try again in {remaining_wait}s."
     src, tgt = pair
     cfg = DecodeConfig(
         max_new_tokens=max_new_tokens,
@@ -206,6 +251,8 @@ def ocr_ui(file_obj, lang_hint: str):
 
 
 def extract_ui(text: str, instruction: str, schema_hint: str, engine: str):
+    if not _rate_limiter.check():
+        return "⚠️ Rate limited — try again in a minute."
     text = (text or "").strip()
     instruction = (instruction or "").strip()
     schema_hint = (schema_hint or "").strip()

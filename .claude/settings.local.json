@@ -5,7 +5,8 @@
       "Bash(tasklist)",
       "Bash(python -c \"import json; d=json.load\\(open\\('C:/Users/svsus/Documents/GitHub/nahuatltranslator/nahuatl_translator_project/eval_charts/ml/_last_eval.json'\\)\\); scores=[p['bertscore'] for p in d['pairs']]; print\\(f'BERTScore: min={min\\(scores\\):.3f} max={max\\(scores\\):.3f} avg={sum\\(scores\\)/len\\(scores\\):.3f} zeros={scores.count\\(0.0\\)}'\\)\")",
       "Bash(python -u -c ':*)",
-      "Bash(python scripts/generate_eval_charts.py)"
+      "Bash(python scripts/generate_eval_charts.py)",
+      "Bash(python -m pytest --collect-only -q)"
     ]
   }
 }
